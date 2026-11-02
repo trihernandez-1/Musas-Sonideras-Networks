@@ -1,0 +1,206 @@
+/* Sonidero-inspired palette: bold, warm, hand-made rather than corporate. */
+
+:root {
+  --color-bg: #fdf6ec;
+  --color-surface: #fffaf2;
+  --color-surface-raised: #ffffff;
+  --color-border: #e8d9bf;
+  --color-text: #2b1b12;
+  --color-text-muted: #6b5544;
+
+  --color-primary: #c1272d; /* sonidero red */
+  --color-primary-contrast: #fff8ec;
+  --color-secondary: #1b5e20; /* heritage green */
+  --color-accent: #f2a007; /* marquee gold */
+  --color-accent-2: #004e89; /* flyer blue */
+  --color-magenta: #a8326b;
+
+  --color-danger: #b3261e;
+  --color-success: #1b5e20;
+
+  --shadow-soft: 0 2px 10px rgba(43, 27, 18, 0.12);
+  --shadow-raised: 0 6px 20px rgba(43, 27, 18, 0.18);
+
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+
+  --font-display: 'Georgia', 'Iowan Old Style', serif;
+  --font-body: -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+:root[data-theme='dark'] {
+  --color-bg: #1a1210;
+  --color-surface: #241a16;
+  --color-surface-raised: #2e221c;
+  --color-border: #4a372c;
+  --color-text: #f6ecdf;
+  --color-text-muted: #c6ad96;
+
+  --color-primary: #ff5a60;
+  --color-primary-contrast: #1a1210;
+  --color-secondary: #5bd166;
+  --color-accent: #ffc23c;
+  --color-accent-2: #5aa7ff;
+  --color-magenta: #e467a0;
+
+  --shadow-soft: 0 2px 10px rgba(0, 0, 0, 0.4);
+  --shadow-raised: 0 8px 24px rgba(0, 0, 0, 0.55);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  letter-spacing: 0.01em;
+  margin: 0 0 0.5em;
+}
+
+a {
+  color: var(--color-accent-2);
+}
+
+button,
+input,
+textarea,
+select {
+  font-family: inherit;
+  font-size: 1rem;
+}
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4em;
+  border: 2px solid var(--color-primary);
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  border-radius: var(--radius-md);
+  padding: 0.5em 1.1em;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.08s ease, box-shadow 0.08s ease;
+}
+
+.btn:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-soft);
+}
+
+.btn:active {
+  transform: translateY(0);
+}
+
+.btn.secondary {
+  background: transparent;
+  color: var(--color-primary);
+}
+
+.btn.ghost {
+  background: transparent;
+  border-color: var(--color-border);
+  color: var(--color-text);
+}
+
+.btn.danger {
+  background: var(--color-danger);
+  border-color: var(--color-danger);
+}
+
+.card {
+  background: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-soft);
+  padding: 1.25rem;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  border-radius: 999px;
+  padding: 0.2em 0.75em;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border: 1px solid transparent;
+}
+
+.app-shell {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-surface);
+  border-bottom: 3px solid var(--color-primary);
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 1.3rem;
+  color: var(--color-primary);
+}
+
+.nav {
+  display: flex;
+  gap: 0.25rem;
+  flex-wrap: wrap;
+}
+
+.nav a {
+  color: var(--color-text);
+  text-decoration: none;
+  padding: 0.4em 0.8em;
+  border-radius: var(--radius-sm);
+  font-weight: 600;
+}
+
+.nav a.active,
+.nav a:hover {
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+}
+
+.main-content {
+  flex: 1;
+  padding: 1.5rem;
+  max-width: 1200px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+.theme-toggle {
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-raised);
+  border-radius: 999px;
+  padding: 0.4em 0.9em;
+  cursor: pointer;
+  color: var(--color-text);
+}
