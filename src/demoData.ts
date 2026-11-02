@@ -188,19 +188,7 @@ export async function loadDemoData(): Promise<void> {
     tagIds: [governmentTag.id],
   });
   ids.postIds.push(post1.id, post2.id);
-
-  await upsertEvent({
-    id: event.id,
-    name: event.name,
-    startDate: event.startDate,
-    endDate: event.endDate,
-    placeId: event.placeId,
-    description: event.description,
-    interpretation: event.interpretation,
-    postIds: [post1.id],
-    collaboratorIds: event.collaboratorIds,
-    tagIds: event.tagIds,
-  });
+  // event.postIds is derived data — upsertPost already recomputed it from post1's eventId.
 
   const manualConn = await upsertManualConnection({
     collaboratorAId: djAna.id,

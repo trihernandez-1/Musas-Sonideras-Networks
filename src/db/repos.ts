@@ -154,6 +154,7 @@ export async function upsertPost(
   };
   await db.put('posts', record);
   await rebuildCoTaggedConnections();
+  await rebuildEventPostLinks();
   return record;
 }
 
@@ -167,6 +168,36 @@ export async function deletePost(id: string): Promise<void> {
     await tx.done;
   }
   await rebuildCoTaggedConnections();
+  await rebuildEventPostLinks();
+}
+
+/**
+ * An event's postIds is derived data, like co-tagged connections: recomputed from every
+ * post's eventId whenever a post is saved or deleted, so the two can never drift apart.
+ */
+export async function rebuildEventPostLinks(): Promise<void> {
+  const db = await getDB();
+  const [posts, events] = await Promise.all([db.getAll('posts'), db.getAll('events')]);
+
+  const postIdsByEvent = new Map<string, string[]>();
+  for (const post of posts) {
+    if (!post.eventId) continue;
+    const list = postIdsByEvent.get(post.eventId) ?? [];
+    list.push(post.id);
+    postIdsByEvent.set(post.eventId, list);
+  }
+
+  const tx = db.transaction('events', 'readwrite');
+  for (const event of events) {
+    const newPostIds = postIdsByEvent.get(event.id) ?? [];
+    const unchanged =
+      newPostIds.length === event.postIds.length &&
+      newPostIds.every((pid) => event.postIds.includes(pid));
+    if (!unchanged) {
+      await tx.store.put({ ...event, postIds: newPostIds, updatedAt: nowISO() });
+    }
+  }
+  await tx.done;
 }
 
 // ---------- Places ----------
