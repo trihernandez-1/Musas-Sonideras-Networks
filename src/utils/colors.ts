@@ -1,15 +1,17 @@
 // A starting palette for new tags (the researcher can always override via the color picker).
+// Kept muted and restrained so tags read as a legend, not confetti — plum is reserved
+// as the app's own accent color and left out of this auto-assigned set.
 export const TAG_PALETTE = [
-  '#c1272d', // sonidero red
-  '#1b5e20', // heritage green
-  '#f2a007', // marquee gold
-  '#004e89', // flyer blue
-  '#a8326b', // magenta
-  '#6a4c93', // purple
-  '#1282a2', // teal
-  '#d1495b', // coral
-  '#8d6a46', // warm brown
-  '#3a5a40', // olive
+  '#8a7a52', // ochre
+  '#3f4a3d', // olive
+  '#4a5a68', // slate
+  '#8c5a3c', // terracotta
+  '#5c6650', // sage
+  '#6b5a6b', // mauve
+  '#7a6a4a', // sand
+  '#3c5a5a', // teal-gray
+  '#6a4a4a', // brick
+  '#555a3c', // moss
 ];
 
 /** Deterministic fallback color for a tag that has no explicit color, based on its id. */

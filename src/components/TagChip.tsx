@@ -1,5 +1,5 @@
 import type { Tag } from '../types/models';
-import { contrastText, hashColor } from '../utils/colors';
+import { hashColor } from '../utils/colors';
 
 export default function TagChip({
   tag,
@@ -10,18 +10,26 @@ export default function TagChip({
   onRemove?: () => void;
   size?: 'sm' | 'md';
 }) {
-  const bg = tag.color ?? hashColor(tag.id);
-  const fg = contrastText(bg);
+  const swatch = tag.color ?? hashColor(tag.id);
   return (
     <span
       className="chip"
       style={{
-        background: bg,
-        color: fg,
-        fontSize: size === 'sm' ? '0.75rem' : '0.85rem',
-        padding: size === 'sm' ? '0.1em 0.6em' : undefined,
+        fontSize: size === 'sm' ? '0.72rem' : '0.8rem',
+        padding: size === 'sm' ? '0.12em 0.55em' : undefined,
+        letterSpacing: '0.02em',
       }}
     >
+      <span
+        aria-hidden
+        style={{
+          width: '7px',
+          height: '7px',
+          borderRadius: '50%',
+          background: swatch,
+          flexShrink: 0,
+        }}
+      />
       {tag.label}
       {onRemove && (
         <button
@@ -30,12 +38,11 @@ export default function TagChip({
           style={{
             background: 'transparent',
             border: 'none',
-            color: fg,
+            color: 'var(--color-text-muted)',
             cursor: 'pointer',
-            fontWeight: 700,
+            fontWeight: 600,
             padding: 0,
             lineHeight: 1,
-            opacity: 0.8,
           }}
         >
           ×

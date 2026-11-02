@@ -77,7 +77,7 @@ export default function CollaboratorMultiSelect({
           <span
             key={c.id}
             className="chip"
-            style={{ background: 'var(--color-accent-2)', color: '#fff8ec' }}
+            style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}
           >
             {c.name}
             <button
@@ -88,7 +88,7 @@ export default function CollaboratorMultiSelect({
                 border: 'none',
                 color: 'inherit',
                 cursor: 'pointer',
-                fontWeight: 700,
+                fontWeight: 600,
                 padding: 0,
                 lineHeight: 1,
                 opacity: 0.85,
