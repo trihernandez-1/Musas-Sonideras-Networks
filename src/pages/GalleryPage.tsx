@@ -7,6 +7,7 @@ import { usePostThemes } from '../hooks/usePostThemes';
 import TagChip from '../components/TagChip';
 import StoredImageView from '../components/StoredImageView';
 import PostLightbox from '../components/PostLightbox';
+import { describeCleanup } from '../utils/describeCleanup';
 
 type GalleryItem =
   | { kind: 'post'; date: string; post: Post }
@@ -17,14 +18,15 @@ export default function GalleryPage() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const { tags } = useTags();
-  const { themes } = usePostThemes();
+  const { tags, refresh: refreshTags } = useTags();
+  const { themes, refresh: refreshThemes } = usePostThemes();
 
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [themeFilterIds, setThemeFilterIds] = useState<string[]>([]);
   const [collaboratorFilterId, setCollaboratorFilterId] = useState('');
   const [placeFilterId, setPlaceFilterId] = useState('');
   const [openPostId, setOpenPostId] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     const [p, e, pl, c] = await Promise.all([getAllPosts(), getAllEvents(), getAllPlaces(), getAllCollaborators()]);
@@ -41,14 +43,16 @@ export default function GalleryPage() {
   async function handleDeletePost(id: string) {
     if (!confirm('Delete this post? Its screenshots and interpretation will be permanently removed.')) return;
     if (openPostId === id) setOpenPostId(null);
-    await deletePost(id);
-    await refresh();
+    const summary = await deletePost(id);
+    await Promise.all([refresh(), refreshTags(), refreshThemes()]);
+    setMessage(describeCleanup(summary) ?? 'Post deleted.');
   }
 
   async function handleDeleteEvent(id: string, name: string) {
     if (!confirm(`Delete "${name}"? Posts linked to it keep their records but lose this link.`)) return;
-    await deleteEvent(id);
-    await refresh();
+    const summary = await deleteEvent(id);
+    await Promise.all([refresh(), refreshTags(), refreshThemes()]);
+    setMessage(describeCleanup(summary) ?? 'Event deleted.');
   }
 
   const tagById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
@@ -99,6 +103,14 @@ export default function GalleryPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      {message && (
+        <div className="card" style={{ borderColor: 'var(--color-accent)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem' }}>
+          <span>{message}</span>
+          <button type="button" className="btn ghost" style={{ padding: '0.15em 0.6em', flexShrink: 0 }} onClick={() => setMessage(null)}>
+            Dismiss
+          </button>
+        </div>
+      )}
       <div className="card">
         <h1>Gallery</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>

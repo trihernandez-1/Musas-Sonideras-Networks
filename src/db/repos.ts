@@ -208,7 +208,95 @@ export async function upsertPost(
   return record;
 }
 
-export async function deletePost(id: string): Promise<void> {
+export interface OrphanCleanupSummary {
+  tagLabels: string[];
+  themeLabels: string[];
+  collaboratorNames: string[];
+}
+
+const EMPTY_CLEANUP_SUMMARY: OrphanCleanupSummary = { tagLabels: [], themeLabels: [], collaboratorNames: [] };
+
+/**
+ * After deleting a post or event, removes any tags/themes/collaborators that were only
+ * ever referenced by that one record, so one-off tags and placeholder collaborators don't
+ * pile up over months of use. Deliberately conservative about collaborators: one is only
+ * auto-removed if it's both unreferenced anywhere else AND has no content of its own
+ * (no description, notes, tags, photo, or central-node flag) — a bare quick-created
+ * placeholder, not a collaborator the researcher has actually written anything about.
+ */
+async function cleanupOrphans(candidate: {
+  tagIds: string[];
+  themeIds: string[];
+  collaboratorIds: string[];
+}): Promise<OrphanCleanupSummary> {
+  if (candidate.tagIds.length === 0 && candidate.themeIds.length === 0 && candidate.collaboratorIds.length === 0) {
+    return EMPTY_CLEANUP_SUMMARY;
+  }
+
+  const db = await getDB();
+  const [collaborators, posts, events, places, connections, allTags, allThemes] = await Promise.all([
+    db.getAll('collaborators'),
+    db.getAll('posts'),
+    db.getAll('events'),
+    db.getAll('places'),
+    db.getAll('connections'),
+    db.getAll('tags'),
+    db.getAll('themes'),
+  ]);
+
+  const usedTagIds = new Set<string>();
+  collaborators.forEach((c) => c.tagIds.forEach((tid) => usedTagIds.add(tid)));
+  posts.forEach((p) => p.tagIds.forEach((tid) => usedTagIds.add(tid)));
+  events.forEach((e) => e.tagIds.forEach((tid) => usedTagIds.add(tid)));
+  places.forEach((p) => p.placeTypeTagIds.forEach((tid) => usedTagIds.add(tid)));
+  const orphanedTagIds = candidate.tagIds.filter((tid) => !usedTagIds.has(tid));
+
+  const usedThemeIds = new Set<string>();
+  posts.forEach((p) => (p.themeIds ?? []).forEach((tid) => usedThemeIds.add(tid)));
+  const orphanedThemeIds = candidate.themeIds.filter((tid) => !usedThemeIds.has(tid));
+
+  const usedCollaboratorIds = new Set<string>();
+  posts.forEach((p) => p.collaboratorIds.forEach((cid) => usedCollaboratorIds.add(cid)));
+  events.forEach((e) => e.collaboratorIds.forEach((cid) => usedCollaboratorIds.add(cid)));
+  connections.forEach((c) => {
+    usedCollaboratorIds.add(c.collaboratorAId);
+    usedCollaboratorIds.add(c.collaboratorBId);
+  });
+  const collaboratorById = new Map(collaborators.map((c) => [c.id, c]));
+  const orphanedCollaboratorIds = candidate.collaboratorIds.filter((cid) => {
+    if (usedCollaboratorIds.has(cid)) return false;
+    const c = collaboratorById.get(cid);
+    if (!c) return false;
+    return (
+      !c.description.trim() &&
+      !c.notes.trim() &&
+      !c.profileImageId &&
+      !c.isCentral &&
+      c.tagIds.length === 0 &&
+      !c.firstSeenDate
+    );
+  });
+
+  const tagById = new Map(allTags.map((t) => [t.id, t]));
+  const themeById = new Map(allThemes.map((t) => [t.id, t]));
+  const summary: OrphanCleanupSummary = {
+    tagLabels: orphanedTagIds.map((tid) => tagById.get(tid)?.label).filter((l): l is string => Boolean(l)),
+    themeLabels: orphanedThemeIds.map((tid) => themeById.get(tid)?.label).filter((l): l is string => Boolean(l)),
+    collaboratorNames: orphanedCollaboratorIds
+      .map((cid) => collaboratorById.get(cid)?.name)
+      .filter((n): n is string => Boolean(n)),
+  };
+
+  await Promise.all([
+    ...orphanedTagIds.map((tid) => deleteTag(tid)),
+    ...orphanedThemeIds.map((tid) => deleteTheme(tid)),
+    ...orphanedCollaboratorIds.map((cid) => deleteCollaborator(cid)),
+  ]);
+
+  return summary;
+}
+
+export async function deletePost(id: string): Promise<OrphanCleanupSummary> {
   const db = await getDB();
   const post = await db.get('posts', id);
   await db.delete('posts', id);
@@ -219,6 +307,8 @@ export async function deletePost(id: string): Promise<void> {
   }
   await rebuildCoTaggedConnections();
   await rebuildEventPostLinks();
+  if (!post) return EMPTY_CLEANUP_SUMMARY;
+  return cleanupOrphans({ tagIds: post.tagIds, themeIds: post.themeIds ?? [], collaboratorIds: post.collaboratorIds });
 }
 
 /**
@@ -309,9 +399,12 @@ export async function upsertEvent(
   return record;
 }
 
-export async function deleteEvent(id: string): Promise<void> {
+export async function deleteEvent(id: string): Promise<OrphanCleanupSummary> {
   const db = await getDB();
+  const event = await db.get('events', id);
   await db.delete('events', id);
+  if (!event) return EMPTY_CLEANUP_SUMMARY;
+  return cleanupOrphans({ tagIds: event.tagIds, themeIds: [], collaboratorIds: event.collaboratorIds });
 }
 
 // ---------- Field Notes ----------

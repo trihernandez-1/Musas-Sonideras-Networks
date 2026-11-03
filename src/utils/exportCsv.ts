@@ -47,7 +47,8 @@ posts.csv — one row per post
   - Themes: the post's thematic-analysis codes, a separate vocabulary from Tags
 
 events.csv — one row per event
-  Id, Name, StartDate, EndDate, PlaceName, Description, Interpretation, CollaboratorNames, Tags, PostCount
+  Id, Name, StartDate, EndDate, PlaceName, Description, Interpretation, CollaboratorNames, Roles, Tags, PostCount
+  - Roles: "Name:Role" pairs, semicolon-separated, only for collaborators with a role noted
 
 places.csv — one row per place
   Id, Name, Address, Lat, Lng, Types, Notes
@@ -148,8 +149,18 @@ export async function exportCsvBundle(): Promise<void> {
     ]),
   );
 
+  const collaboratorRoles = (e: EventRecord) =>
+    e.collaboratorIds
+      .map((cid) => {
+        const role = e.collaboratorRoles?.[cid];
+        const name = collaboratorById.get(cid)?.name;
+        return role && name ? `${name}:${role}` : null;
+      })
+      .filter((s): s is string => Boolean(s))
+      .join(';');
+
   const eventsCsv = toCSV(
-    ['Id', 'Name', 'StartDate', 'EndDate', 'PlaceName', 'Description', 'Interpretation', 'CollaboratorNames', 'Tags', 'PostCount'],
+    ['Id', 'Name', 'StartDate', 'EndDate', 'PlaceName', 'Description', 'Interpretation', 'CollaboratorNames', 'Roles', 'Tags', 'PostCount'],
     events.map((e: EventRecord) => [
       e.id,
       e.name,
@@ -159,6 +170,7 @@ export async function exportCsvBundle(): Promise<void> {
       stripHtml(e.description),
       stripHtml(e.interpretation),
       collaboratorNames(e.collaboratorIds),
+      collaboratorRoles(e),
       tagLabels(e.tagIds),
       e.postIds.length,
     ]),

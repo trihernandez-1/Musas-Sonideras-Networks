@@ -17,6 +17,7 @@ import CollaboratorMultiSelect from '../components/CollaboratorMultiSelect';
 import StoredImageView from '../components/StoredImageView';
 import RichTextEditor from '../components/RichTextEditor';
 import MiniMap from '../components/MiniMap';
+import { describeCleanup } from '../utils/describeCleanup';
 
 export default function EventDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -69,7 +70,9 @@ export default function EventDetailPage() {
   async function handleDelete() {
     if (!event) return;
     if (!confirm(`Delete "${event.name}"? Posts linked to it keep their records but lose this link.`)) return;
-    await deleteEvent(event.id);
+    const summary = await deleteEvent(event.id);
+    const cleanupNote = describeCleanup(summary);
+    if (cleanupNote) alert(cleanupNote);
     navigate('/map');
   }
 
@@ -139,6 +142,29 @@ export default function EventDetailPage() {
                 }}
               />
             </div>
+            {draft.collaboratorIds.length > 0 && (
+              <div>
+                <FieldLabel>Who did what (optional)</FieldLabel>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {draft.collaboratorIds.map((cid) => (
+                    <div key={cid} style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '0.5rem', alignItems: 'center' }}>
+                      <span style={{ fontSize: '0.9rem' }}>{collaboratorById.get(cid)?.name ?? 'Unknown'}</span>
+                      <input
+                        value={draft.collaboratorRoles?.[cid] ?? ''}
+                        onChange={(e) =>
+                          setDraft({
+                            ...draft,
+                            collaboratorRoles: { ...draft.collaboratorRoles, [cid]: e.target.value },
+                          })
+                        }
+                        placeholder="Role, e.g. DJ, Venue, Designer…"
+                        style={{ ...inputStyle, padding: '0.35rem 0.6rem' }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <FieldLabel>Tags</FieldLabel>
               <TagMultiSelect allTags={tags} selectedIds={draft.tagIds} onChange={(ids) => setDraft({ ...draft, tagIds: ids })} onCreateTag={createTag} />
@@ -173,12 +199,16 @@ export default function EventDetailPage() {
             {event.collaboratorIds.length > 0 && (
               <div style={{ marginTop: '1rem' }}>
                 <FieldLabel>Collaborators</FieldLabel>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
-                  {event.collaboratorIds.map((cid) => (
-                    <Link key={cid} to={`/collaborators/${cid}`}>
-                      {collaboratorById.get(cid)?.name ?? 'Unknown'}
-                    </Link>
-                  ))}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.25rem' }}>
+                  {event.collaboratorIds.map((cid) => {
+                    const role = event.collaboratorRoles?.[cid];
+                    return (
+                      <span key={cid}>
+                        <Link to={`/collaborators/${cid}`}>{collaboratorById.get(cid)?.name ?? 'Unknown'}</Link>
+                        {role && <span style={{ color: 'var(--color-text-muted)' }}> — {role}</span>}
+                      </span>
+                    );
+                  })}
                 </div>
               </div>
             )}

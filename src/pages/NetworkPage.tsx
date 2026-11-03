@@ -21,6 +21,7 @@ import ManualConnectionForm from '../components/ManualConnectionForm';
 import TagChip from '../components/TagChip';
 import StoredImageView from '../components/StoredImageView';
 import PostHighlightPicker from '../components/PostHighlightPicker';
+import EventNetworkView from '../components/EventNetworkView';
 import { exportSvgAsPngFile, exportSvgAsSvgFile } from '../utils/exportSvg';
 
 const MIN_RADIUS = 10;
@@ -48,6 +49,7 @@ export default function NetworkPage() {
   const [draftConnection, setDraftConnection] = useState<{ aId: string; bId: string } | null>(null);
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
+  const [viewMode, setViewMode] = useState<'aggregate' | 'byEvent'>('aggregate');
 
   const load = useCallback(async () => {
     const [c, conn, p] = await Promise.all([getAllCollaborators(), getAllConnections(), getAllPosts()]);
@@ -241,8 +243,23 @@ export default function NetworkPage() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
+        <h1 style={{ marginBottom: 0 }}>Network</h1>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button type="button" className={viewMode === 'aggregate' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('aggregate')}>
+            Aggregate
+          </button>
+          <button type="button" className={viewMode === 'byEvent' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('byEvent')}>
+            By event
+          </button>
+        </div>
+      </div>
+
+      {viewMode === 'byEvent' ? (
+        <EventNetworkView />
+      ) : (
+        <>
       <div className="card">
-        <h1>Network</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
           Nodes are collaborators, sized by how many posts they appear in. Solid lines are
           co-tagged in a post; dashed lines are connections you've drawn by hand. Pick a post
@@ -463,6 +480,8 @@ export default function NetworkPage() {
           onCancel={() => setEditingConnection(null)}
           onDelete={handleDeleteEditingConnection}
         />
+      )}
+        </>
       )}
     </div>
   );

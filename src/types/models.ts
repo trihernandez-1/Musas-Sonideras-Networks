@@ -87,6 +87,9 @@ export interface EventRecord {
   interpretation: string;
   postIds: ID[];
   collaboratorIds: ID[];
+  /** What each collaborator did for this event, e.g. "DJ", "Venue", "Designer" — free text,
+   * keyed by collaborator id. Optional and sparse: not every participant needs one noted. */
+  collaboratorRoles?: Record<ID, string>;
   tagIds: ID[];
   createdAt: string;
   updatedAt: string;

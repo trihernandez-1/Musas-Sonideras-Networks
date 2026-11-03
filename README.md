@@ -86,19 +86,26 @@ no server, no privacy risk) but also means:
 - **Collaborators** — searchable card grid with tag filtering; each profile
   shows description, tags, every post/event they appear in, their connections,
   a small map, and prints to a clean profile sheet.
-- **Network** — a force-directed graph (collaborators as nodes, sized by post
-  count): solid lines for co-tagged connections, dashed for ones you draw by
-  hand (drag from node to node); filter by tag, color by a chosen tag, pick a
-  single post to spotlight exactly who was tagged together in it, and a
-  date-range slider marking October 6, 2023 (the heritage declaration) to
-  compare before/after. Exports as SVG or PNG.
+- **Network** — two modes, switchable at the top:
+  - **Aggregate**: a force-directed graph (collaborators as nodes, sized by
+    post count): solid lines for co-tagged connections, dashed for ones you
+    draw by hand (drag from node to node); filter by tag, color by a chosen
+    tag, pick a single post to spotlight exactly who was tagged together in
+    it, and a date-range slider marking October 6, 2023 (the heritage
+    declaration) to compare before/after.
+  - **By event**: pick one event to see just its participants in a simple
+    hub diagram, colored by the role you gave each person (set roles from
+    the event's own page, under "Who did what").
+  Both export as SVG or PNG.
 - **Map** — events as clustered pins; add a place by clicking the map or
   searching an address (OpenStreetMap Nominatim); the same tag/date filters;
   an optional overlay of lines between places that share a collaborator;
   prints to PDF.
 - **Gallery** — every post and event as a wall of screenshots in date order,
   your interpretation underneath each one, filterable by tag, theme,
-  collaborator, or place.
+  collaborator, or place. Each card has a delete button — removing a post or
+  event also cleans up any tags, themes, or placeholder collaborators that
+  were only ever used by that one record.
 - **Field Notes** — free-form notes you can link to any collaborator, post,
   event, or place.
 - **Event pages** (`/events/:id`) — a full profile for each event, reached from
