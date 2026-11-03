@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import type { Collaborator, EventRecord, Place, Post } from '../types/models';
 import { getAllCollaborators, getAllEvents, getAllPlaces, getAllPosts } from '../db/repos';
 import { useTags } from '../hooks/useTags';
+import { usePostThemes } from '../hooks/usePostThemes';
 import TagChip from '../components/TagChip';
 import StoredImageView from '../components/StoredImageView';
 import PostLightbox from '../components/PostLightbox';
@@ -17,8 +18,10 @@ export default function GalleryPage() {
   const [places, setPlaces] = useState<Place[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const { tags } = useTags();
+  const { themes } = usePostThemes();
 
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
+  const [themeFilterIds, setThemeFilterIds] = useState<string[]>([]);
   const [collaboratorFilterId, setCollaboratorFilterId] = useState('');
   const [placeFilterId, setPlaceFilterId] = useState('');
   const [openPostId, setOpenPostId] = useState<string | null>(null);
@@ -35,6 +38,7 @@ export default function GalleryPage() {
   }, []);
 
   const tagById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
+  const themeById = useMemo(() => new Map(themes.map((t) => [t.id, t])), [themes]);
   const collaboratorById = useMemo(() => new Map(collaborators.map((c) => [c.id, c])), [collaborators]);
   const placeById = useMemo(() => new Map(places.map((p) => [p.id, p])), [places]);
   const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events]);
@@ -53,6 +57,10 @@ export default function GalleryPage() {
       const tagIds = item.kind === 'post' ? item.post.tagIds : item.event.tagIds;
       const collaboratorIds = item.kind === 'post' ? item.post.collaboratorIds : item.event.collaboratorIds;
       if (tagFilterIds.length > 0 && !tagFilterIds.some((tid) => tagIds.includes(tid))) return false;
+      if (themeFilterIds.length > 0) {
+        const themeIds = item.kind === 'post' ? (item.post.themeIds ?? []) : [];
+        if (!themeFilterIds.some((tid) => themeIds.includes(tid))) return false;
+      }
       if (collaboratorFilterId && !collaboratorIds.includes(collaboratorFilterId)) return false;
       if (placeFilterId) {
         const placeId =
@@ -63,10 +71,14 @@ export default function GalleryPage() {
       }
       return true;
     });
-  }, [items, tagFilterIds, collaboratorFilterId, placeFilterId, eventById]);
+  }, [items, tagFilterIds, themeFilterIds, collaboratorFilterId, placeFilterId, eventById]);
 
   function toggleTagFilter(id: string) {
     setTagFilterIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function toggleThemeFilter(id: string) {
+    setThemeFilterIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
   }
 
   const openPost = openPostId ? posts.find((p) => p.id === openPostId) ?? null : null;
@@ -86,6 +98,17 @@ export default function GalleryPage() {
               {tags.map((tag) => (
                 <span key={tag.id} onClick={() => toggleTagFilter(tag.id)} style={{ cursor: 'pointer', opacity: tagFilterIds.length === 0 || tagFilterIds.includes(tag.id) ? 1 : 0.4 }}>
                   <TagChip tag={tag} size="sm" />
+                </span>
+              ))}
+            </div>
+          </div>
+          <div>
+            <FieldLabel>Filter by theme</FieldLabel>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', maxWidth: '320px' }}>
+              {themes.length === 0 && <span style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem' }}>No themes yet</span>}
+              {themes.map((theme) => (
+                <span key={theme.id} onClick={() => toggleThemeFilter(theme.id)} style={{ cursor: 'pointer', opacity: themeFilterIds.length === 0 || themeFilterIds.includes(theme.id) ? 1 : 0.4 }}>
+                  <TagChip tag={theme} size="sm" />
                 </span>
               ))}
             </div>
@@ -121,6 +144,7 @@ export default function GalleryPage() {
             key={item.kind === 'post' ? `post-${item.post.id}` : `event-${item.event.id}`}
             item={item}
             tagById={tagById}
+            themeById={themeById}
             placeById={placeById}
             onOpenPost={(id) => setOpenPostId(id)}
           />
@@ -133,6 +157,7 @@ export default function GalleryPage() {
           post={openPost}
           collaboratorById={collaboratorById}
           tagById={tagById}
+          themeById={themeById}
           eventName={openPost.eventId ? eventById.get(openPost.eventId)?.name : undefined}
           placeName={openPost.placeId ? placeById.get(openPost.placeId)?.name : undefined}
           onClose={() => setOpenPostId(null)}
@@ -145,16 +170,20 @@ export default function GalleryPage() {
 function GalleryCard({
   item,
   tagById,
+  themeById,
   placeById,
   onOpenPost,
 }: {
   item: GalleryItem;
   tagById: Map<string, { id: string; label: string; color?: string }>;
+  themeById: Map<string, { id: string; label: string; color?: string }>;
   placeById: Map<string, Place>;
   onOpenPost: (id: string) => void;
 }) {
   const tagIds = item.kind === 'post' ? item.post.tagIds : item.event.tagIds;
   const tagList = tagIds.map((id) => tagById.get(id)).filter((t): t is NonNullable<typeof t> => Boolean(t));
+  const themeIds = item.kind === 'post' ? item.post.themeIds ?? [] : [];
+  const themeList = themeIds.map((id) => themeById.get(id)).filter((t): t is NonNullable<typeof t> => Boolean(t));
   const interpretation = item.kind === 'post' ? item.post.interpretation : item.event.interpretation;
   const imageId = item.kind === 'post' ? item.post.imageIds[0] : item.thumbnailImageId;
 
@@ -179,10 +208,13 @@ function GalleryCard({
             dangerouslySetInnerHTML={{ __html: interpretation }}
           />
         )}
-        {tagList.length > 0 && (
+        {(tagList.length > 0 || themeList.length > 0) && (
           <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: 'auto' }}>
             {tagList.map((tag) => (
               <TagChip key={tag.id} tag={tag} size="sm" />
+            ))}
+            {themeList.map((theme) => (
+              <TagChip key={theme.id} tag={theme} size="sm" />
             ))}
           </div>
         )}

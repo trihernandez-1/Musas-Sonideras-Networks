@@ -12,13 +12,14 @@ interface Counts {
   events: number;
   connections: number;
   tags: number;
+  themes: number;
   fieldNotes: number;
   images: number;
 }
 
 async function loadCounts(): Promise<Counts> {
   const db = await getDB();
-  const [collaborators, posts, places, events, connections, tags, fieldNotes, images] =
+  const [collaborators, posts, places, events, connections, tags, themes, fieldNotes, images] =
     await Promise.all([
       db.count('collaborators'),
       db.count('posts'),
@@ -26,10 +27,11 @@ async function loadCounts(): Promise<Counts> {
       db.count('events'),
       db.count('connections'),
       db.count('tags'),
+      db.count('themes'),
       db.count('fieldNotes'),
       db.count('images'),
     ]);
-  return { collaborators, posts, places, events, connections, tags, fieldNotes, images };
+  return { collaborators, posts, places, events, connections, tags, themes, fieldNotes, images };
 }
 
 export default function HomePage() {
@@ -154,6 +156,7 @@ export default function HomePage() {
             <CountTile label="Places" value={counts.places} />
             <CountTile label="Connections" value={counts.connections} />
             <CountTile label="Tags" value={counts.tags} />
+            <CountTile label="Themes" value={counts.themes} />
             <CountTile label="Field notes" value={counts.fieldNotes} />
             <CountTile label="Images stored" value={counts.images} />
           </div>

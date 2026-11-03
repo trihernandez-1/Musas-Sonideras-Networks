@@ -13,6 +13,7 @@ import {
   upsertPlace,
 } from '../db/repos';
 import { useTags } from '../hooks/useTags';
+import { usePostThemes } from '../hooks/usePostThemes';
 import ClusterLayer from '../components/ClusterLayer';
 import DateRangeSlider from '../components/DateRangeSlider';
 import PlacePanel from '../components/PlacePanel';
@@ -40,6 +41,7 @@ export default function MapPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const { tags, createTag } = useTags();
+  const { themes } = usePostThemes();
 
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<[string, string] | null>(null);
@@ -81,6 +83,7 @@ export default function MapPage() {
   const postById = useMemo(() => new Map(posts.map((p) => [p.id, p])), [posts]);
   const collaboratorById = useMemo(() => new Map(collaborators.map((c) => [c.id, c])), [collaborators]);
   const tagById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
+  const themeById = useMemo(() => new Map(themes.map((t) => [t.id, t])), [themes]);
 
   const eventsInRange = useMemo(
     () =>
@@ -452,6 +455,7 @@ export default function MapPage() {
           post={selectedPost}
           collaboratorById={collaboratorById}
           tagById={tagById}
+          themeById={themeById}
           eventName={selectedPost.eventId ? events.find((e) => e.id === selectedPost.eventId)?.name : undefined}
           placeName={selectedPost.placeId ? placeById.get(selectedPost.placeId)?.name : undefined}
           onClose={() => setSelectedPostId(null)}

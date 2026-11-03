@@ -3,7 +3,15 @@
 
 import JSZip from 'jszip';
 import type { Collaborator, Connection, EventRecord, Place, Post } from '../types/models';
-import { getAllCollaborators, getAllConnections, getAllEvents, getAllPlaces, getAllPosts, getAllTags } from '../db/repos';
+import {
+  getAllCollaborators,
+  getAllConnections,
+  getAllEvents,
+  getAllPlaces,
+  getAllPosts,
+  getAllTags,
+  getAllThemes,
+} from '../db/repos';
 import { downloadBlob, stripHtml } from './download';
 
 function csvCell(value: string | number | boolean | undefined | null): string {
@@ -34,8 +42,9 @@ connections.csv — one row per connection. Use as the EDGES table in Gephi
   - FirstDate / LastDate: date range of the posts behind a co-tagged edge (blank for manual)
 
 posts.csv — one row per post
-  Id, PostDate, PostUrl, CaptionNotes, Interpretation, CollaboratorNames, EventName, PlaceName, Tags
+  Id, PostDate, PostUrl, CaptionNotes, Interpretation, CollaboratorNames, EventName, PlaceName, Tags, Themes
   - PlaceName: the post's own location if set, independent of its linked event
+  - Themes: the post's thematic-analysis codes, a separate vocabulary from Tags
 
 events.csv — one row per event
   Id, Name, StartDate, EndDate, PlaceName, Description, Interpretation, CollaboratorNames, Tags, PostCount
@@ -51,16 +60,19 @@ igraph::graph_from_data_frame(edges, vertices = nodes).
 `;
 
 export async function exportCsvBundle(): Promise<void> {
-  const [collaborators, connections, posts, events, places, tags] = await Promise.all([
+  const [collaborators, connections, posts, events, places, tags, themes] = await Promise.all([
     getAllCollaborators(),
     getAllConnections(),
     getAllPosts(),
     getAllEvents(),
     getAllPlaces(),
     getAllTags(),
+    getAllThemes(),
   ]);
 
   const tagById = new Map(tags.map((t) => [t.id, t]));
+  const themeById = new Map(themes.map((t) => [t.id, t]));
+  const themeLabels = (ids: string[]) => ids.map((id) => themeById.get(id)?.label).filter(Boolean).join(';');
   const collaboratorById = new Map(collaborators.map((c) => [c.id, c]));
   const eventById = new Map(events.map((e) => [e.id, e]));
   const placeById = new Map(places.map((p) => [p.id, p]));
@@ -121,7 +133,7 @@ export async function exportCsvBundle(): Promise<void> {
   );
 
   const postsCsv = toCSV(
-    ['Id', 'PostDate', 'PostUrl', 'CaptionNotes', 'Interpretation', 'CollaboratorNames', 'EventName', 'PlaceName', 'Tags'],
+    ['Id', 'PostDate', 'PostUrl', 'CaptionNotes', 'Interpretation', 'CollaboratorNames', 'EventName', 'PlaceName', 'Tags', 'Themes'],
     posts.map((p: Post) => [
       p.id,
       p.postDate,
@@ -132,6 +144,7 @@ export async function exportCsvBundle(): Promise<void> {
       p.eventId ? eventById.get(p.eventId)?.name ?? '' : '',
       p.placeId ? placeById.get(p.placeId)?.name ?? '' : '',
       tagLabels(p.tagIds),
+      themeLabels(p.themeIds ?? []),
     ]),
   );
 

@@ -10,6 +10,7 @@ import {
   upsertPost,
 } from '../db/repos';
 import { useTags } from '../hooks/useTags';
+import { usePostThemes } from '../hooks/usePostThemes';
 import ImageDropzone from '../components/ImageDropzone';
 import CollaboratorMultiSelect from '../components/CollaboratorMultiSelect';
 import TagMultiSelect from '../components/TagMultiSelect';
@@ -31,6 +32,7 @@ const EMPTY_FORM = {
   eventId: undefined as string | undefined,
   placeId: undefined as string | undefined,
   tagIds: [] as string[],
+  themeIds: [] as string[],
 };
 
 export default function InboxPage() {
@@ -38,6 +40,7 @@ export default function InboxPage() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const { tags, createTag } = useTags();
+  const { themes, createTheme } = usePostThemes();
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -115,6 +118,7 @@ export default function InboxPage() {
         eventId: form.eventId,
         placeId: form.placeId,
         tagIds: form.tagIds,
+        themeIds: form.themeIds,
       });
       setMessage('Post saved. Add another?');
       resetForNextPost();
@@ -230,6 +234,21 @@ export default function InboxPage() {
           selectedIds={form.tagIds}
           onChange={(ids) => update('tagIds', ids)}
           onCreateTag={createTag}
+        />
+      </div>
+
+      <div className="card">
+        <Label>Themes</Label>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: 0, marginBottom: '0.6rem' }}>
+          Your own codes for thematic analysis — a separate list from Tags above, filterable in
+          the Gallery.
+        </p>
+        <TagMultiSelect
+          allTags={themes}
+          selectedIds={form.themeIds}
+          onChange={(ids) => update('themeIds', ids)}
+          onCreateTag={createTheme}
+          placeholder="Type to search or create a theme…"
         />
       </div>
 

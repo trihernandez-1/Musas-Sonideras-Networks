@@ -9,6 +9,7 @@ import type {
   Place,
   Post,
   Tag,
+  Theme,
 } from '../types/models';
 
 interface BackupManifest {
@@ -25,6 +26,7 @@ interface BackupData {
   events: EventRecord[];
   connections: Connection[];
   tags: Tag[];
+  themes?: Theme[]; // optional: absent in backups made before themes existed
   fieldNotes: FieldNote[];
 }
 
@@ -38,7 +40,7 @@ const EXT_BY_MIME: Record<string, string> = {
 /** Exports the entire project (data + images) as one .zip file and triggers a browser download. */
 export async function exportBackup(): Promise<void> {
   const db = await getDB();
-  const [collaborators, posts, places, events, connections, tags, fieldNotes, images] =
+  const [collaborators, posts, places, events, connections, tags, themes, fieldNotes, images] =
     await Promise.all([
       db.getAll('collaborators'),
       db.getAll('posts'),
@@ -46,12 +48,13 @@ export async function exportBackup(): Promise<void> {
       db.getAll('events'),
       db.getAll('connections'),
       db.getAll('tags'),
+      db.getAll('themes'),
       db.getAll('fieldNotes'),
       db.getAll('images'),
     ]);
 
   const zip = new JSZip();
-  const data: BackupData = { collaborators, posts, places, events, connections, tags, fieldNotes };
+  const data: BackupData = { collaborators, posts, places, events, connections, tags, themes, fieldNotes };
 
   const manifest: BackupManifest = {
     appName: 'musas-sonideras',
@@ -64,6 +67,7 @@ export async function exportBackup(): Promise<void> {
       events: events.length,
       connections: connections.length,
       tags: tags.length,
+      themes: themes.length,
       fieldNotes: fieldNotes.length,
       images: images.length,
     },
@@ -123,16 +127,17 @@ export async function importBackup(file: File | Blob): Promise<ImportSummary> {
   const db = await getDB();
 
   const tx = db.transaction(
-    ['collaborators', 'posts', 'places', 'events', 'connections', 'tags', 'fieldNotes', 'images'],
+    ['collaborators', 'posts', 'places', 'events', 'connections', 'tags', 'themes', 'fieldNotes', 'images'],
     'readwrite',
   );
   await Promise.all([
     ...data.collaborators.map((c) => tx.objectStore('collaborators').put(c)),
-    ...data.posts.map((p) => tx.objectStore('posts').put(p)),
+    ...data.posts.map((p) => tx.objectStore('posts').put({ ...p, themeIds: p.themeIds ?? [] })),
     ...data.places.map((p) => tx.objectStore('places').put(p)),
     ...data.events.map((e) => tx.objectStore('events').put(e)),
     ...data.connections.map((c) => tx.objectStore('connections').put(c)),
     ...data.tags.map((t) => tx.objectStore('tags').put(t)),
+    ...(data.themes ?? []).map((t) => tx.objectStore('themes').put(t)),
     ...data.fieldNotes.map((n) => tx.objectStore('fieldNotes').put(n)),
   ]);
   await tx.done;

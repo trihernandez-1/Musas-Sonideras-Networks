@@ -8,10 +8,11 @@ import type {
   Post,
   StoredImage,
   Tag,
+  Theme,
 } from '../types/models';
 
 export const DB_NAME = 'musas-sonideras-db';
-export const DB_VERSION = 1;
+export const DB_VERSION = 2;
 
 export interface MusasDB extends DBSchema {
   collaborators: {
@@ -41,6 +42,10 @@ export interface MusasDB extends DBSchema {
   tags: {
     key: string;
     value: Tag;
+  };
+  themes: {
+    key: string;
+    value: Theme;
   };
   images: {
     key: string;

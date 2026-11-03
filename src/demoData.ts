@@ -9,7 +9,9 @@ import {
   deletePlace,
   deletePost,
   deleteTag,
+  deleteTheme,
   findOrCreateTag,
+  findOrCreateTheme,
   saveImage,
   upsertCollaborator,
   upsertManualConnection,
@@ -27,14 +29,16 @@ interface DemoIds {
   eventIds: string[];
   connectionIds: string[];
   tagIds: string[];
+  themeIds: string[];
 }
 
 function loadTrackedIds(): DemoIds {
   const raw = localStorage.getItem(DEMO_IDS_KEY);
   if (!raw) {
-    return { collaboratorIds: [], postIds: [], placeIds: [], eventIds: [], connectionIds: [], tagIds: [] };
+    return { collaboratorIds: [], postIds: [], placeIds: [], eventIds: [], connectionIds: [], tagIds: [], themeIds: [] };
   }
-  return JSON.parse(raw);
+  const parsed = JSON.parse(raw);
+  return { themeIds: [], ...parsed };
 }
 
 function saveTrackedIds(ids: DemoIds): void {
@@ -80,6 +84,7 @@ export async function loadDemoData(): Promise<void> {
     eventIds: [],
     connectionIds: [],
     tagIds: [],
+    themeIds: [],
   };
 
   const sonideroTag = await findOrCreateTag('Sonidero');
@@ -87,6 +92,10 @@ export async function loadDemoData(): Promise<void> {
   const governmentTag = await findOrCreateTag('Gobierno');
   const designTag = await findOrCreateTag('Diseño gráfico');
   ids.tagIds.push(sonideroTag.id, venueTag.id, governmentTag.id, designTag.id);
+
+  const heritageTheme = await findOrCreateTheme('Patrimonio y reconocimiento (demo)');
+  const genderTheme = await findOrCreateTheme('Redes de género (demo)');
+  ids.themeIds.push(heritageTheme.id, genderTheme.id);
 
   const musas = await upsertCollaborator({
     name: 'Musas Sonideras',
@@ -177,6 +186,7 @@ export async function loadDemoData(): Promise<void> {
     collaboratorIds: [musas.id, djAna.id, salonCorona.id, disenadora.id],
     eventId: event.id,
     tagIds: [sonideroTag.id],
+    themeIds: [genderTheme.id],
   });
   const post2 = await upsertPost({
     imageIds: [img2.id],
@@ -187,6 +197,7 @@ export async function loadDemoData(): Promise<void> {
       'Momento clave: la cultura sonidera es declarada patrimonio cultural inmaterial de la Ciudad de México. Este post sirve como punto de comparación antes/después en la red. [DEMO]',
     collaboratorIds: [musas.id, culturaCDMX.id],
     tagIds: [governmentTag.id],
+    themeIds: [heritageTheme.id],
   });
   ids.postIds.push(post1.id, post2.id);
   // event.postIds is derived data — upsertPost already recomputed it from post1's eventId.
@@ -218,6 +229,7 @@ export async function deleteDemoData(): Promise<void> {
   }
   await Promise.all(ids.collaboratorIds.map((id) => deleteCollaborator(id)));
   await Promise.all(ids.tagIds.map((id) => deleteTag(id)));
+  await Promise.all(ids.themeIds.map((id) => deleteTheme(id)));
 
   localStorage.removeItem(DEMO_IDS_KEY);
 }

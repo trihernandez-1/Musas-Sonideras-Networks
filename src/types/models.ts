@@ -11,6 +11,11 @@ export interface Tag {
   color?: string;
 }
 
+/** A thematic-analysis code for posts — same shape as Tag, but kept in its own pool so it
+ * doesn't mix into the general-purpose Tags used everywhere else (collaborators, events,
+ * places). Created freely and reused via a dropdown, same as tags. */
+export type Theme = Tag;
+
 /** A stored image blob (profile pictures, post screenshots), kept out of the main record for lazy loading. */
 export interface StoredImage {
   id: ID;
@@ -54,6 +59,8 @@ export interface Post {
    * event — not every post belongs to a formal event, but many still have a place). */
   placeId?: ID;
   tagIds: ID[];
+  /** Thematic-analysis codes for this post — a separate vocabulary from tagIds. */
+  themeIds: ID[];
   createdAt: string;
   updatedAt: string;
 }

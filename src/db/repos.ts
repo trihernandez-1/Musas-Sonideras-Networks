@@ -8,6 +8,7 @@ import type {
   Post,
   StoredImage,
   Tag,
+  Theme,
 } from '../types/models';
 
 // ---------- Tags ----------
@@ -44,6 +45,34 @@ export function normalizeForSearch(s: string): string {
     .normalize('NFD')
     .replace(/[̀-ͯ]/g, '')
     .toLowerCase();
+}
+
+// ---------- Themes (thematic-analysis codes for posts) ----------
+
+export async function getAllThemes(): Promise<Theme[]> {
+  const db = await getDB();
+  return db.getAll('themes');
+}
+
+export async function upsertTheme(theme: Theme): Promise<void> {
+  const db = await getDB();
+  await db.put('themes', theme);
+}
+
+export async function deleteTheme(id: string): Promise<void> {
+  const db = await getDB();
+  await db.delete('themes', id);
+}
+
+/** Finds a theme by exact (case-insensitive, accent-insensitive) label, or creates it. */
+export async function findOrCreateTheme(label: string): Promise<Theme> {
+  const trimmed = label.trim();
+  const themes = await getAllThemes();
+  const existing = themes.find((t) => normalizeForSearch(t.label) === normalizeForSearch(trimmed));
+  if (existing) return existing;
+  const theme: Theme = { id: newId(), label: trimmed };
+  await upsertTheme(theme);
+  return theme;
 }
 
 // ---------- Images ----------

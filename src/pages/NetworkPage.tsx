@@ -20,6 +20,7 @@ import DateRangeSlider from '../components/DateRangeSlider';
 import ManualConnectionForm from '../components/ManualConnectionForm';
 import TagChip from '../components/TagChip';
 import StoredImageView from '../components/StoredImageView';
+import PostHighlightPicker from '../components/PostHighlightPicker';
 import { exportSvgAsPngFile, exportSvgAsSvgFile } from '../utils/exportSvg';
 
 const MIN_RADIUS = 10;
@@ -46,6 +47,7 @@ export default function NetworkPage() {
   const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [draftConnection, setDraftConnection] = useState<{ aId: string; bId: string } | null>(null);
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
+  const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [c, conn, p] = await Promise.all([getAllCollaborators(), getAllConnections(), getAllPosts()]);
@@ -80,6 +82,12 @@ export default function NetworkPage() {
     [posts, effectiveRange],
   );
   const postById = useMemo(() => new Map(posts.map((p) => [p.id, p])), [posts]);
+
+  const highlightedCollaboratorIds = useMemo(() => {
+    if (!highlightPostId) return null;
+    const post = postById.get(highlightPostId);
+    return post ? new Set(post.collaboratorIds) : null;
+  }, [highlightPostId, postById]);
 
   const postCountByCollaborator = useMemo(() => {
     const map = new Map<string, number>();
@@ -237,7 +245,8 @@ export default function NetworkPage() {
         <h1>Network</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
           Nodes are collaborators, sized by how many posts they appear in. Solid lines are
-          co-tagged in a post; dashed lines are connections you've drawn by hand.
+          co-tagged in a post; dashed lines are connections you've drawn by hand. Pick a post
+          below to spotlight exactly who was tagged together in it.
         </p>
 
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -271,6 +280,11 @@ export default function NetworkPage() {
                 </option>
               ))}
             </select>
+          </div>
+
+          <div>
+            <FieldLabel>Highlight a post</FieldLabel>
+            <PostHighlightPicker posts={posts} selectedId={highlightPostId} onChange={setHighlightPostId} />
           </div>
 
           <div style={{ flex: 1, minWidth: '280px' }}>
@@ -353,6 +367,7 @@ export default function NetworkPage() {
               }}
               onNodeDragEnd={handleNodeDragEnd}
               onConnectionDrawn={handleConnectionDrawn}
+              highlightedNodeIds={highlightedCollaboratorIds}
             />
           )}
         </div>

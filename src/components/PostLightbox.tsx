@@ -7,6 +7,7 @@ export default function PostLightbox({
   post,
   collaboratorById,
   tagById,
+  themeById,
   eventName,
   placeName,
   onClose,
@@ -14,6 +15,7 @@ export default function PostLightbox({
   post: Post;
   collaboratorById: Map<string, Collaborator>;
   tagById: Map<string, Tag>;
+  themeById?: Map<string, Tag>;
   eventName?: string;
   placeName?: string;
   onClose: () => void;
@@ -73,10 +75,20 @@ export default function PostLightbox({
             </div>
           )}
           {post.tagIds.length > 0 && (
-            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: themeById && (post.themeIds ?? []).length > 0 ? '0.6rem' : 0 }}>
               {post.tagIds.map((tid) => tagById.get(tid)).filter((t): t is Tag => Boolean(t)).map((tag) => (
                 <TagChip key={tag.id} tag={tag} />
               ))}
+            </div>
+          )}
+          {themeById && (post.themeIds ?? []).length > 0 && (
+            <div>
+              <FieldLabel>Themes</FieldLabel>
+              <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+                {(post.themeIds ?? []).map((tid) => themeById.get(tid)).filter((t): t is Tag => Boolean(t)).map((theme) => (
+                  <TagChip key={theme.id} tag={theme} />
+                ))}
+              </div>
             </div>
           )}
           <button type="button" className="btn ghost" style={{ marginTop: '1.25rem' }} onClick={onClose}>

@@ -36,6 +36,20 @@ interface SimLink {
 const VIEW_W = 900;
 const VIEW_H = 600;
 
+function nodeOpacity(d: SimNode, highlighted?: Set<string> | null): number {
+  if (!highlighted || highlighted.size === 0) return 1;
+  return highlighted.has(d.id) ? 1 : 0.12;
+}
+
+function edgeOpacity(d: SimLink, selectedEdgeId: string | null | undefined, highlighted?: Set<string> | null): number {
+  if (highlighted && highlighted.size > 0) {
+    const sourceId = typeof d.source === 'string' ? d.source : d.source.id;
+    const targetId = typeof d.target === 'string' ? d.target : d.target.id;
+    return highlighted.has(sourceId) && highlighted.has(targetId) ? 0.9 : 0.05;
+  }
+  return d.id === selectedEdgeId ? 1 : 0.55;
+}
+
 /** Positions persist across re-filters in this module-level-free, component-scoped cache
  * (one per mounted graph instance, via a ref) so dragging or filtering doesn't rescatter
  * nodes that remain visible. */
@@ -51,6 +65,7 @@ export default function NetworkGraph({
   onNodeDragEnd,
   onConnectionDrawn,
   svgRef: externalSvgRef,
+  highlightedNodeIds,
 }: {
   nodes: GraphNodeInput[];
   edges: GraphEdgeInput[];
@@ -64,6 +79,9 @@ export default function NetworkGraph({
   onConnectionDrawn: (sourceId: string, targetId: string) => void;
   /** Optional: lets the parent page read the live SVG element (e.g. for PNG/SVG export). */
   svgRef?: React.RefObject<SVGSVGElement | null>;
+  /** When set (non-empty), spotlights these nodes and the edges between them — everything
+   * else dims. Used to show who was tagged together in one particular post. */
+  highlightedNodeIds?: Set<string> | null;
 }) {
   const internalSvgRef = useRef<SVGSVGElement>(null);
   const svgRef = externalSvgRef ?? internalSvgRef;
@@ -148,7 +166,7 @@ export default function NetworkGraph({
       .attr('stroke', (d) => (d.type === 'manual' ? plumColor : mutedColor))
       .attr('stroke-dasharray', (d) => (d.type === 'manual' ? '5 4' : null))
       .attr('stroke-width', (d) => (d.type === 'manual' ? 2 : Math.min(1 + Math.sqrt(d.weight) * 1.4, 9)))
-      .attr('stroke-opacity', (d) => (d.id === selectedEdgeId ? 1 : 0.55))
+      .attr('stroke-opacity', (d) => edgeOpacity(d, selectedEdgeId, highlightedNodeIds))
       .style('cursor', 'pointer')
       .on('click', (event, d) => {
         event.stopPropagation();
@@ -160,6 +178,7 @@ export default function NetworkGraph({
       .data(simNodes, (d) => d.id)
       .join('g')
       .attr('class', 'graph-node')
+      .attr('opacity', (d) => nodeOpacity(d, highlightedNodeIds))
       .style('cursor', connectMode ? 'crosshair' : 'grab');
 
     nodeSel
@@ -266,20 +285,22 @@ export default function NetworkGraph({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, connectMode]);
 
-  // Keep selection highlighting in sync without rebuilding the whole simulation.
+  // Keep selection/highlight state in sync without rebuilding the whole simulation.
   useEffect(() => {
     if (!svgRef.current) return;
     const plumColor = readCSSVar('--color-primary', '#5e2a52');
     const surfaceColor = readCSSVar('--color-surface-raised', '#ffffff');
     const svg = select(svgRef.current);
     svg
-      .selectAll<SVGCircleElement, SimNode>('.graph-node circle')
+      .selectAll<SVGGElement, SimNode>('.graph-node')
+      .attr('opacity', (d) => nodeOpacity(d, highlightedNodeIds))
+      .select<SVGCircleElement>('circle')
       .attr('stroke', (d) => (d.id === selectedNodeId ? plumColor : surfaceColor))
       .attr('stroke-width', (d) => (d.id === selectedNodeId ? 3 : d.isCentral ? 3 : 1.5));
     svg
       .selectAll<SVGLineElement, SimLink>('.graph-edge')
-      .attr('stroke-opacity', (d) => (d.id === selectedEdgeId ? 1 : 0.55));
-  }, [selectedNodeId, selectedEdgeId]);
+      .attr('stroke-opacity', (d) => edgeOpacity(d, selectedEdgeId, highlightedNodeIds));
+  }, [selectedNodeId, selectedEdgeId, highlightedNodeIds]);
 
   return (
     <svg
