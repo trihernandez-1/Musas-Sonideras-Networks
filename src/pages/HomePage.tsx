@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { exportBackup, importBackup } from '../db/backup';
 import { deleteDemoData, hasDemoData, loadDemoData } from '../demoData';
 import { getDB } from '../db/db';
+import { exportCsvBundle } from '../utils/exportCsv';
+import { exportGeoJson } from '../utils/exportGeoJson';
 
 interface Counts {
   collaborators: number;
@@ -74,6 +76,26 @@ export default function HomePage() {
     try {
       await exportBackup();
       setMessage('Backup downloaded as a .zip file.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleExportCsv() {
+    setBusy(true);
+    try {
+      await exportCsvBundle();
+      setMessage('CSVs downloaded — ready to import into Gephi or R.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleExportGeoJson() {
+    setBusy(true);
+    try {
+      await exportGeoJson();
+      setMessage('GeoJSON downloaded — ready to open in QGIS.');
     } finally {
       setBusy(false);
     }
@@ -182,6 +204,24 @@ export default function HomePage() {
               e.target.value = '';
             }}
           />
+        </div>
+      </section>
+
+      <section className="card">
+        <h2>Data exports</h2>
+        <p style={{ color: 'var(--color-text-muted)' }}>
+          For analysis outside the app. CSVs are shaped as a nodes/edges table pair, ready to
+          import straight into Gephi or load in R with <code>igraph</code>. The GeoJSON file
+          opens directly in QGIS. (The network graph itself exports as PNG/SVG from the Network
+          page, and the map prints to PDF from the Map page.)
+        </p>
+        <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+          <button className="btn secondary" onClick={handleExportCsv} disabled={busy}>
+            Export CSVs (Gephi / R)
+          </button>
+          <button className="btn secondary" onClick={handleExportGeoJson} disabled={busy}>
+            Export GeoJSON (QGIS)
+          </button>
         </div>
       </section>
     </div>

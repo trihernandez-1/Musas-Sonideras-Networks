@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Collaborator, Connection, Post, Tag } from '../types/models';
 import { HERITAGE_DECLARATION_DATE } from '../types/models';
@@ -20,6 +20,7 @@ import DateRangeSlider from '../components/DateRangeSlider';
 import ManualConnectionForm from '../components/ManualConnectionForm';
 import TagChip from '../components/TagChip';
 import StoredImageView from '../components/StoredImageView';
+import { exportSvgAsPngFile, exportSvgAsSvgFile } from '../utils/exportSvg';
 
 const MIN_RADIUS = 10;
 const MAX_RADIUS = 42;
@@ -35,6 +36,7 @@ export default function NetworkPage() {
   const [posts, setPosts] = useState<Post[]>([]);
   const { tags } = useTags();
   const [theme] = useTheme();
+  const svgRef = useRef<SVGSVGElement>(null);
 
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [colorByTagId, setColorByTagId] = useState<string>('');
@@ -171,6 +173,14 @@ export default function NetworkPage() {
     await load();
   }
 
+  function handleExportSvg() {
+    if (svgRef.current) exportSvgAsSvgFile(svgRef.current, 'musas-sonideras-network.svg');
+  }
+
+  async function handleExportPng() {
+    if (svgRef.current) await exportSvgAsPngFile(svgRef.current, 'musas-sonideras-network.png');
+  }
+
   function handleConnectionDrawn(aId: string, bId: string) {
     setDraftConnection({ aId, bId });
   }
@@ -304,6 +314,14 @@ export default function NetworkPage() {
           >
             Since heritage declaration
           </button>
+          <span style={{ marginLeft: 'auto', display: 'flex', gap: '0.5rem' }}>
+            <button type="button" className="btn ghost" onClick={handleExportSvg}>
+              Export SVG
+            </button>
+            <button type="button" className="btn ghost" onClick={handleExportPng}>
+              Export PNG
+            </button>
+          </span>
         </div>
       </div>
 
@@ -315,6 +333,7 @@ export default function NetworkPage() {
             </div>
           ) : (
             <NetworkGraph
+              svgRef={svgRef}
               nodes={graphNodes}
               edges={graphEdges}
               connectMode={connectMode}

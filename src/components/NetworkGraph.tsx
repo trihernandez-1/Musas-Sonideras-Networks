@@ -4,6 +4,7 @@ import type { Simulation, SimulationNodeDatum } from 'd3-force';
 import { select } from 'd3-selection';
 import { drag } from 'd3-drag';
 import { zoom, zoomIdentity } from 'd3-zoom';
+import { readCSSVar } from '../utils/colors';
 
 export interface GraphNodeInput {
   id: string;
@@ -49,6 +50,7 @@ export default function NetworkGraph({
   onBackgroundClick,
   onNodeDragEnd,
   onConnectionDrawn,
+  svgRef: externalSvgRef,
 }: {
   nodes: GraphNodeInput[];
   edges: GraphEdgeInput[];
@@ -60,8 +62,11 @@ export default function NetworkGraph({
   onBackgroundClick: () => void;
   onNodeDragEnd: (id: string, x: number, y: number) => void;
   onConnectionDrawn: (sourceId: string, targetId: string) => void;
+  /** Optional: lets the parent page read the live SVG element (e.g. for PNG/SVG export). */
+  svgRef?: React.RefObject<SVGSVGElement | null>;
 }) {
-  const svgRef = useRef<SVGSVGElement>(null);
+  const internalSvgRef = useRef<SVGSVGElement>(null);
+  const svgRef = externalSvgRef ?? internalSvgRef;
   const positionsRef = useRef<Map<string, { x: number; y: number; fx?: number | null; fy?: number | null }>>(
     new Map(),
   );
@@ -83,6 +88,13 @@ export default function NetworkGraph({
     const svg = select(svgRef.current);
     svg.selectAll('*').remove();
 
+    // Resolved to concrete hex once per render, rather than left as var(--x) attribute
+    // values: an exported standalone SVG/PNG has no :root to resolve those against.
+    const plumColor = readCSSVar('--color-primary', '#5e2a52');
+    const mutedColor = readCSSVar('--color-text-muted', '#726d68');
+    const surfaceColor = readCSSVar('--color-surface-raised', '#ffffff');
+    const textColor = readCSSVar('--color-text', '#1b1a19');
+
     const zoomLayer = svg.append('g').attr('class', 'zoom-layer');
     const linkLayer = zoomLayer.append('g').attr('class', 'links');
     const nodeLayer = zoomLayer.append('g').attr('class', 'nodes');
@@ -90,7 +102,7 @@ export default function NetworkGraph({
 
     const draftLine = draftLayer
       .append('line')
-      .attr('stroke', 'var(--color-primary)')
+      .attr('stroke', plumColor)
       .attr('stroke-width', 2)
       .attr('stroke-dasharray', '4 3')
       .attr('opacity', 0)
@@ -133,7 +145,7 @@ export default function NetworkGraph({
       .data(simLinks, (d) => d.id)
       .join('line')
       .attr('class', 'graph-edge')
-      .attr('stroke', (d) => (d.type === 'manual' ? 'var(--color-primary)' : 'var(--color-text-muted)'))
+      .attr('stroke', (d) => (d.type === 'manual' ? plumColor : mutedColor))
       .attr('stroke-dasharray', (d) => (d.type === 'manual' ? '5 4' : null))
       .attr('stroke-width', (d) => (d.type === 'manual' ? 2 : Math.min(1 + Math.sqrt(d.weight) * 1.4, 9)))
       .attr('stroke-opacity', (d) => (d.id === selectedEdgeId ? 1 : 0.55))
@@ -154,7 +166,7 @@ export default function NetworkGraph({
       .append('circle')
       .attr('r', (d) => d.radius)
       .attr('fill', (d) => d.color)
-      .attr('stroke', (d) => (d.id === selectedNodeId ? 'var(--color-primary)' : 'var(--color-surface-raised)'))
+      .attr('stroke', (d) => (d.id === selectedNodeId ? plumColor : surfaceColor))
       .attr('stroke-width', (d) => (d.id === selectedNodeId ? 3 : d.isCentral ? 3 : 1.5));
 
     nodeSel
@@ -163,7 +175,7 @@ export default function NetworkGraph({
       .attr('text-anchor', 'middle')
       .attr('y', (d) => d.radius + 14)
       .attr('font-size', 11)
-      .attr('fill', 'var(--color-text)')
+      .attr('fill', textColor)
       .style('pointer-events', 'none')
       .style('user-select', 'none');
 
@@ -257,10 +269,12 @@ export default function NetworkGraph({
   // Keep selection highlighting in sync without rebuilding the whole simulation.
   useEffect(() => {
     if (!svgRef.current) return;
+    const plumColor = readCSSVar('--color-primary', '#5e2a52');
+    const surfaceColor = readCSSVar('--color-surface-raised', '#ffffff');
     const svg = select(svgRef.current);
     svg
       .selectAll<SVGCircleElement, SimNode>('.graph-node circle')
-      .attr('stroke', (d) => (d.id === selectedNodeId ? 'var(--color-primary)' : 'var(--color-surface-raised)'))
+      .attr('stroke', (d) => (d.id === selectedNodeId ? plumColor : surfaceColor))
       .attr('stroke-width', (d) => (d.id === selectedNodeId ? 3 : d.isCentral ? 3 : 1.5));
     svg
       .selectAll<SVGLineElement, SimLink>('.graph-edge')

@@ -101,8 +101,10 @@ export default function CollaboratorDetailPage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <Link to="/collaborators">&larr; Back to Collaborators</Link>
+    <div className="print-target" style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <Link to="/collaborators" className="no-print">
+        &larr; Back to Collaborators
+      </Link>
 
       <div className="card" style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
         <div style={{ width: '140px', flexShrink: 0 }}>
@@ -258,9 +260,12 @@ export default function CollaboratorDetailPage() {
               {collaborator.notes && (
                 <p style={{ marginTop: '0.75rem', whiteSpace: 'pre-wrap' }}>{collaborator.notes}</p>
               )}
-              <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
+              <div className="no-print" style={{ display: 'flex', gap: '0.5rem', marginTop: '1rem' }}>
                 <button className="btn secondary" onClick={() => setEditing(true)}>
                   Edit
+                </button>
+                <button className="btn ghost" onClick={() => window.print()}>
+                  Print profile
                 </button>
                 <button className="btn danger" onClick={handleDelete}>
                   Delete
@@ -271,7 +276,7 @@ export default function CollaboratorDetailPage() {
         </div>
       </div>
 
-      <div className="card">
+      <div className="card no-print">
         <h2>Where they've appeared</h2>
         <MiniMap places={myPlaces} />
       </div>
@@ -309,7 +314,7 @@ export default function CollaboratorDetailPage() {
         <ul>
           {events.map((ev) => (
             <li key={ev.id}>
-              {ev.name} — {ev.startDate}
+              <Link to={`/events/${ev.id}`}>{ev.name}</Link> — {ev.startDate}
             </li>
           ))}
         </ul>

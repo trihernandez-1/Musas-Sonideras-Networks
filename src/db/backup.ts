@@ -1,5 +1,6 @@
 import JSZip from 'jszip';
 import { getDB, clearAllData } from './db';
+import { downloadBlob } from '../utils/download';
 import type {
   Collaborator,
   Connection,
@@ -89,17 +90,6 @@ export async function exportBackup(): Promise<void> {
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
   const dateStamp = new Date().toISOString().slice(0, 10);
   downloadBlob(blob, `musas-sonideras-backup-${dateStamp}.zip`);
-}
-
-function downloadBlob(blob: Blob, fileName: string): void {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = fileName;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
 }
 
 export interface ImportSummary {

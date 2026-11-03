@@ -230,15 +230,24 @@ export default function MapPage() {
           <button type="button" className="btn ghost" onClick={() => setDateRange([HERITAGE_DECLARATION_DATE, maxDate])}>
             Since heritage declaration
           </button>
+          <button type="button" className="btn ghost" onClick={() => window.print()} title="Opens the print dialog with just the map — choose 'Save as PDF' for an image file">
+            Export map (print)
+          </button>
           <label style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.85rem', marginLeft: 'auto' }}>
             <input type="checkbox" checked={showSharedLines} onChange={(e) => setShowSharedLines(e.target.checked)} />
             Show lines between places that share a collaborator
           </label>
         </div>
+        <p style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)', marginTop: '0.5rem', marginBottom: 0 }}>
+          "Export map" opens your browser's print dialog showing just the map — choose "Save as
+          PDF" there for a file, or take a screenshot of the preview. A direct one-click PNG
+          isn't reliable for map tiles specifically, since OpenStreetMap's tile server doesn't
+          allow browsers to read map imagery back out for export; printing sidesteps that.
+        </p>
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '1.25rem' }}>
-        <div className="card" style={{ padding: 0, height: '620px', overflow: 'hidden' }}>
+        <div className="card print-target" style={{ padding: 0, height: '620px', overflow: 'hidden' }}>
           <MapContainer center={MEXICO_CITY_CENTER} zoom={11} style={{ height: '100%', width: '100%' }}>
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -290,7 +299,9 @@ export default function MapPage() {
 
           {!placeDraft && !editingPlace && selectedEvent && (
             <div className="card">
-              <h2>{selectedEvent.name}</h2>
+              <h2>
+                <Link to={`/events/${selectedEvent.id}`}>{selectedEvent.name}</Link>
+              </h2>
               <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
                 {selectedEvent.startDate}
                 {selectedEvent.endDate && selectedEvent.endDate !== selectedEvent.startDate ? ` – ${selectedEvent.endDate}` : ''}

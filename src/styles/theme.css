@@ -350,6 +350,27 @@ select {
   background: var(--color-primary-tint);
 }
 
+/* Printing a single element (the map, a collaborator profile, an event profile) in
+   isolation: mark the element .print-target and everything else is hidden for that page. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-target,
+  .print-target * {
+    visibility: visible;
+  }
+  .print-target {
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+  }
+  .no-print {
+    display: none !important;
+  }
+}
+
 .marker-cluster-custom {
   display: flex;
   align-items: center;

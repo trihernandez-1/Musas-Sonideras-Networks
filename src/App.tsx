@@ -6,7 +6,9 @@ import CollaboratorsPage from './pages/CollaboratorsPage';
 import CollaboratorDetailPage from './pages/CollaboratorDetailPage';
 import NetworkPage from './pages/NetworkPage';
 import MapPage from './pages/MapPage';
-import StubPage from './pages/StubPage';
+import EventDetailPage from './pages/EventDetailPage';
+import GalleryPage from './pages/GalleryPage';
+import FieldNotesPage from './pages/FieldNotesPage';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Home' },
@@ -23,7 +25,7 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
+      <header className="topbar no-print">
         <span className="brand">Musas Sonideras</span>
         <nav className="nav">
           {NAV_ITEMS.map((item) => (
@@ -49,11 +51,9 @@ export default function App() {
           <Route path="/collaborators/:id" element={<CollaboratorDetailPage />} />
           <Route path="/network" element={<NetworkPage />} />
           <Route path="/map" element={<MapPage />} />
-          <Route path="/gallery" element={<StubPage title="Gallery / Timeline" stage="Stage 5" />} />
-          <Route
-            path="/field-notes"
-            element={<StubPage title="Field Notes" stage="Stage 5" />}
-          />
+          <Route path="/events/:id" element={<EventDetailPage />} />
+          <Route path="/gallery" element={<GalleryPage />} />
+          <Route path="/field-notes" element={<FieldNotesPage />} />
         </Routes>
       </main>
     </div>
