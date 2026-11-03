@@ -5,6 +5,7 @@ import InboxPage from './pages/InboxPage';
 import CollaboratorsPage from './pages/CollaboratorsPage';
 import CollaboratorDetailPage from './pages/CollaboratorDetailPage';
 import NetworkPage from './pages/NetworkPage';
+import MapPage from './pages/MapPage';
 import StubPage from './pages/StubPage';
 
 const NAV_ITEMS = [
@@ -47,7 +48,7 @@ export default function App() {
           <Route path="/collaborators" element={<CollaboratorsPage />} />
           <Route path="/collaborators/:id" element={<CollaboratorDetailPage />} />
           <Route path="/network" element={<NetworkPage />} />
-          <Route path="/map" element={<StubPage title="Map" stage="Stage 4" />} />
+          <Route path="/map" element={<MapPage />} />
           <Route path="/gallery" element={<StubPage title="Gallery / Timeline" stage="Stage 5" />} />
           <Route
             path="/field-notes"

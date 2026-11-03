@@ -329,3 +329,38 @@ select {
   border: 2px solid var(--color-surface-raised);
   cursor: pointer;
 }
+
+/* Map markers */
+.event-marker-dot {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid var(--color-surface-raised);
+  box-shadow: 0 1px 4px rgba(20, 16, 17, 0.35);
+}
+
+.pending-place-marker-ring {
+  display: block;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px dashed var(--color-primary);
+  background: var(--color-primary-tint);
+}
+
+.marker-cluster-custom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  border: 2px solid var(--color-surface-raised);
+  font-weight: 600;
+  font-size: 0.8rem;
+  box-shadow: 0 1px 4px rgba(20, 16, 17, 0.35);
+}
