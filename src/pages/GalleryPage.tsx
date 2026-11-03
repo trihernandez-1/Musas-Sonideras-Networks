@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { Collaborator, EventRecord, Place, Post } from '../types/models';
-import { getAllCollaborators, getAllEvents, getAllPlaces, getAllPosts } from '../db/repos';
+import { deleteEvent, deletePost, getAllCollaborators, getAllEvents, getAllPlaces, getAllPosts } from '../db/repos';
 import { useTags } from '../hooks/useTags';
 import { usePostThemes } from '../hooks/usePostThemes';
 import TagChip from '../components/TagChip';
@@ -26,16 +26,30 @@ export default function GalleryPage() {
   const [placeFilterId, setPlaceFilterId] = useState('');
   const [openPostId, setOpenPostId] = useState<string | null>(null);
 
-  useEffect(() => {
-    Promise.all([getAllPosts(), getAllEvents(), getAllPlaces(), getAllCollaborators()]).then(
-      ([p, e, pl, c]) => {
-        setPosts(p);
-        setEvents(e);
-        setPlaces(pl);
-        setCollaborators(c);
-      },
-    );
+  const refresh = useCallback(async () => {
+    const [p, e, pl, c] = await Promise.all([getAllPosts(), getAllEvents(), getAllPlaces(), getAllCollaborators()]);
+    setPosts(p);
+    setEvents(e);
+    setPlaces(pl);
+    setCollaborators(c);
   }, []);
+
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
+
+  async function handleDeletePost(id: string) {
+    if (!confirm('Delete this post? Its screenshots and interpretation will be permanently removed.')) return;
+    if (openPostId === id) setOpenPostId(null);
+    await deletePost(id);
+    await refresh();
+  }
+
+  async function handleDeleteEvent(id: string, name: string) {
+    if (!confirm(`Delete "${name}"? Posts linked to it keep their records but lose this link.`)) return;
+    await deleteEvent(id);
+    await refresh();
+  }
 
   const tagById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
   const themeById = useMemo(() => new Map(themes.map((t) => [t.id, t])), [themes]);
@@ -147,6 +161,8 @@ export default function GalleryPage() {
             themeById={themeById}
             placeById={placeById}
             onOpenPost={(id) => setOpenPostId(id)}
+            onDeletePost={handleDeletePost}
+            onDeleteEvent={handleDeleteEvent}
           />
         ))}
         {filtered.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>Nothing matches these filters yet.</p>}
@@ -173,12 +189,16 @@ function GalleryCard({
   themeById,
   placeById,
   onOpenPost,
+  onDeletePost,
+  onDeleteEvent,
 }: {
   item: GalleryItem;
   tagById: Map<string, { id: string; label: string; color?: string }>;
   themeById: Map<string, { id: string; label: string; color?: string }>;
   placeById: Map<string, Place>;
   onOpenPost: (id: string) => void;
+  onDeletePost: (id: string) => void;
+  onDeleteEvent: (id: string, name: string) => void;
 }) {
   const tagIds = item.kind === 'post' ? item.post.tagIds : item.event.tagIds;
   const tagList = tagIds.map((id) => tagById.get(id)).filter((t): t is NonNullable<typeof t> => Boolean(t));
@@ -188,7 +208,32 @@ function GalleryCard({
   const imageId = item.kind === 'post' ? item.post.imageIds[0] : item.thumbnailImageId;
 
   const body = (
-    <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer' }}>
+    <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer', position: 'relative' }}>
+      <button
+        type="button"
+        aria-label={item.kind === 'post' ? 'Delete post' : 'Delete event'}
+        className="btn danger"
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          if (item.kind === 'post') onDeletePost(item.post.id);
+          else onDeleteEvent(item.event.id, item.event.name);
+        }}
+        style={{
+          position: 'absolute',
+          top: '8px',
+          right: '8px',
+          width: '26px',
+          height: '26px',
+          padding: 0,
+          borderRadius: '50%',
+          lineHeight: 1,
+          zIndex: 2,
+          background: 'var(--color-surface-raised)',
+        }}
+      >
+        ×
+      </button>
       {imageId ? (
         <StoredImageView imageId={imageId} alt={item.date} style={{ width: '100%', height: '220px', objectFit: 'cover' }} />
       ) : (
