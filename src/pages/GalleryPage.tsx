@@ -55,7 +55,10 @@ export default function GalleryPage() {
       if (tagFilterIds.length > 0 && !tagFilterIds.some((tid) => tagIds.includes(tid))) return false;
       if (collaboratorFilterId && !collaboratorIds.includes(collaboratorFilterId)) return false;
       if (placeFilterId) {
-        const placeId = item.kind === 'event' ? item.event.placeId : item.post.eventId ? eventById.get(item.post.eventId)?.placeId : undefined;
+        const placeId =
+          item.kind === 'event'
+            ? item.event.placeId
+            : item.post.placeId ?? (item.post.eventId ? eventById.get(item.post.eventId)?.placeId : undefined);
         if (placeId !== placeFilterId) return false;
       }
       return true;
@@ -131,6 +134,7 @@ export default function GalleryPage() {
           collaboratorById={collaboratorById}
           tagById={tagById}
           eventName={openPost.eventId ? eventById.get(openPost.eventId)?.name : undefined}
+          placeName={openPost.placeId ? placeById.get(openPost.placeId)?.name : undefined}
           onClose={() => setOpenPostId(null)}
         />
       )}

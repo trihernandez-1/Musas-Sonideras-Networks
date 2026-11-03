@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Collaborator, EventRecord } from '../types/models';
+import type { Collaborator, EventRecord, Place } from '../types/models';
 import {
   getAllCollaborators,
   getAllEvents,
+  getAllPlaces,
   quickCreateCollaborator,
   saveImage,
   upsertEvent,
@@ -13,6 +14,7 @@ import ImageDropzone from '../components/ImageDropzone';
 import CollaboratorMultiSelect from '../components/CollaboratorMultiSelect';
 import TagMultiSelect from '../components/TagMultiSelect';
 import EventPicker from '../components/EventPicker';
+import PlacePicker from '../components/PlacePicker';
 import RichTextEditor from '../components/RichTextEditor';
 
 function todayISO() {
@@ -27,12 +29,14 @@ const EMPTY_FORM = {
   interpretation: '',
   collaboratorIds: [] as string[],
   eventId: undefined as string | undefined,
+  placeId: undefined as string | undefined,
   tagIds: [] as string[],
 };
 
 export default function InboxPage() {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [events, setEvents] = useState<EventRecord[]>([]);
+  const [places, setPlaces] = useState<Place[]>([]);
   const { tags, createTag } = useTags();
   const [form, setForm] = useState(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
@@ -50,10 +54,17 @@ export default function InboxPage() {
     setEvents(all);
   }, []);
 
+  const refreshPlaces = useCallback(async () => {
+    const all = await getAllPlaces();
+    all.sort((a, b) => a.name.localeCompare(b.name, 'es'));
+    setPlaces(all);
+  }, []);
+
   useEffect(() => {
     refreshCollaborators();
     refreshEvents();
-  }, [refreshCollaborators, refreshEvents]);
+    refreshPlaces();
+  }, [refreshCollaborators, refreshEvents, refreshPlaces]);
 
   function update<K extends keyof typeof EMPTY_FORM>(key: K, value: (typeof EMPTY_FORM)[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -69,6 +80,7 @@ export default function InboxPage() {
     const ev = await upsertEvent({
       name,
       startDate: form.postDate,
+      placeId: form.placeId,
       description: '',
       interpretation: '',
       postIds: [],
@@ -101,6 +113,7 @@ export default function InboxPage() {
         interpretation: form.interpretation,
         collaboratorIds: form.collaboratorIds,
         eventId: form.eventId,
+        placeId: form.placeId,
         tagIds: form.tagIds,
       });
       setMessage('Post saved. Add another?');
@@ -171,6 +184,22 @@ export default function InboxPage() {
           selectedId={form.eventId}
           onChange={(id) => update('eventId', id)}
           onCreateEvent={handleCreateEvent}
+        />
+      </div>
+
+      <div className="card">
+        <Label>Location (optional)</Label>
+        <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: 0, marginBottom: '0.6rem' }}>
+          Where this post happened, if that's relevant — it'll show up as a pin on the Map.
+          Separate from the linked event above, since not every post belongs to one.
+        </p>
+        <PlacePicker
+          allPlaces={places}
+          selectedId={form.placeId}
+          onChange={(id) => update('placeId', id)}
+          onPlaceCreated={(place) => setPlaces((prev) => [...prev, place].sort((a, b) => a.name.localeCompare(b.name, 'es')))}
+          allTags={tags}
+          onCreateTag={createTag}
         />
       </div>
 

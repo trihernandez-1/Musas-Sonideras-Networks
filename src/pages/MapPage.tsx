@@ -18,8 +18,8 @@ import DateRangeSlider from '../components/DateRangeSlider';
 import PlacePanel from '../components/PlacePanel';
 import TagChip from '../components/TagChip';
 import StoredImageView from '../components/StoredImageView';
-
-const MEXICO_CITY_CENTER: [number, number] = [19.4326, -99.1332];
+import PostLightbox from '../components/PostLightbox';
+import { MEXICO_CITY_CENTER } from '../constants';
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
@@ -46,6 +46,7 @@ export default function MapPage() {
   const [showSharedLines, setShowSharedLines] = useState(false);
 
   const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [placeDraft, setPlaceDraft] = useState<{ lat: number; lng: number } | null>(null);
   const [editingPlace, setEditingPlace] = useState<Place | null>(null);
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
@@ -63,13 +64,16 @@ export default function MapPage() {
   }, [load]);
 
   const { minDate, maxDate } = useMemo(() => {
-    const dates = events.map((e) => e.startDate).sort();
+    const dates = [
+      ...events.map((e) => e.startDate),
+      ...posts.filter((p) => p.placeId).map((p) => p.postDate),
+    ].sort();
     if (dates.length === 0) {
       const now = todayISO();
       return { minDate: now, maxDate: now };
     }
     return { minDate: dates[0], maxDate: dates[dates.length - 1] };
-  }, [events]);
+  }, [events, posts]);
 
   const effectiveRange = dateRange ?? [minDate, maxDate];
 
@@ -91,13 +95,31 @@ export default function MapPage() {
   const placedEvents = useMemo(() => eventsInRange.filter((e) => e.placeId && placeById.has(e.placeId)), [eventsInRange, placeById]);
   const unplacedEvents = useMemo(() => eventsInRange.filter((e) => !e.placeId), [eventsInRange]);
 
-  const markerItems = useMemo(
+  // Posts can carry their own place independent of any linked event (not every post
+  // belongs to a formal event), so they get their own pins too.
+  const placedPosts = useMemo(
     () =>
-      placedEvents.map((e) => {
-        const place = placeById.get(e.placeId!)!;
-        return { id: e.id, lat: place.lat, lng: place.lng };
+      posts.filter((p) => {
+        if (!p.placeId || !placeById.has(p.placeId)) return false;
+        if (p.postDate < effectiveRange[0] || p.postDate > effectiveRange[1]) return false;
+        if (tagFilterIds.length > 0 && !tagFilterIds.some((tid) => p.tagIds.includes(tid))) return false;
+        return true;
       }),
-    [placedEvents, placeById],
+    [posts, placeById, effectiveRange, tagFilterIds],
+  );
+
+  const markerItems = useMemo(
+    () => [
+      ...placedEvents.map((e) => {
+        const place = placeById.get(e.placeId!)!;
+        return { id: `event:${e.id}`, lat: place.lat, lng: place.lng };
+      }),
+      ...placedPosts.map((p) => {
+        const place = placeById.get(p.placeId!)!;
+        return { id: `post:${p.id}`, lat: place.lat, lng: place.lng };
+      }),
+    ],
+    [placedEvents, placedPosts, placeById],
   );
 
   // Lines between places that share a collaborator, among the currently-visible events.
@@ -108,6 +130,11 @@ export default function MapPage() {
       const set = collaboratorsByPlace.get(e.placeId!) ?? new Set<string>();
       e.collaboratorIds.forEach((cid) => set.add(cid));
       collaboratorsByPlace.set(e.placeId!, set);
+    }
+    for (const p of placedPosts) {
+      const set = collaboratorsByPlace.get(p.placeId!) ?? new Set<string>();
+      p.collaboratorIds.forEach((cid) => set.add(cid));
+      collaboratorsByPlace.set(p.placeId!, set);
     }
     const placeIds = Array.from(collaboratorsByPlace.keys());
     const lines: { id: string; positions: [number, number][]; shared: string[] }[] = [];
@@ -131,13 +158,27 @@ export default function MapPage() {
       }
     }
     return lines;
-  }, [showSharedLines, placedEvents, placeById]);
+  }, [showSharedLines, placedEvents, placedPosts, placeById]);
 
   const selectedEvent = selectedEventId ? events.find((e) => e.id === selectedEventId) : null;
   const selectedEventPlace = selectedEvent?.placeId ? placeById.get(selectedEvent.placeId) : null;
   const selectedEventPosts = selectedEvent
     ? selectedEvent.postIds.map((pid) => postById.get(pid)).filter((p): p is Post => Boolean(p))
     : [];
+  const selectedPost = selectedPostId ? postById.get(selectedPostId) : null;
+
+  function handleMarkerClick(prefixedId: string) {
+    const [kind, id] = prefixedId.split(':');
+    setPlaceDraft(null);
+    setEditingPlace(null);
+    if (kind === 'event') {
+      setSelectedEventId(id);
+      setSelectedPostId(null);
+    } else {
+      setSelectedPostId(id);
+      setSelectedEventId(null);
+    }
+  }
 
   function toggleTagFilter(id: string) {
     setTagFilterIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -145,6 +186,7 @@ export default function MapPage() {
 
   function handleMapClick(lat: number, lng: number) {
     setSelectedEventId(null);
+    setSelectedPostId(null);
     setEditingPlace(null);
     setPlaceDraft({ lat, lng });
   }
@@ -186,8 +228,9 @@ export default function MapPage() {
       <div className="card">
         <h1>Map</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-          Events as pins, clustered when zoomed out. Click anywhere on the map, or search an
-          address, to save a new place.
+          Events and located posts as pins, clustered when zoomed out. Click anywhere on the
+          map, or search an address, to save a new place — then pick it from the Inbox when
+          adding a post, or from the list below for an existing event.
         </p>
 
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -254,14 +297,7 @@ export default function MapPage() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapClickHandler onClick={handleMapClick} />
-            <ClusterLayer
-              items={markerItems}
-              onItemClick={(id) => {
-                setSelectedEventId(id);
-                setPlaceDraft(null);
-                setEditingPlace(null);
-              }}
-            />
+            <ClusterLayer items={markerItems} onItemClick={handleMarkerClick} />
             {sharedLines.map((line) => (
               <Polyline
                 key={line.id}
@@ -297,7 +333,7 @@ export default function MapPage() {
             />
           )}
 
-          {!placeDraft && !editingPlace && selectedEvent && (
+          {!placeDraft && !editingPlace && !selectedPost && selectedEvent && (
             <div className="card">
               <h2>
                 <Link to={`/events/${selectedEvent.id}`}>{selectedEvent.name}</Link>
@@ -347,7 +383,7 @@ export default function MapPage() {
             </div>
           )}
 
-          {!placeDraft && !editingPlace && !selectedEvent && (
+          {!placeDraft && !editingPlace && !selectedEvent && !selectedPost && (
             <>
               {unplacedEvents.length > 0 && (
                 <div className="card">
@@ -410,6 +446,17 @@ export default function MapPage() {
           )}
         </div>
       </div>
+
+      {selectedPost && (
+        <PostLightbox
+          post={selectedPost}
+          collaboratorById={collaboratorById}
+          tagById={tagById}
+          eventName={selectedPost.eventId ? events.find((e) => e.id === selectedPost.eventId)?.name : undefined}
+          placeName={selectedPost.placeId ? placeById.get(selectedPost.placeId)?.name : undefined}
+          onClose={() => setSelectedPostId(null)}
+        />
+      )}
     </div>
   );
 }

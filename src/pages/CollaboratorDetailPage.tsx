@@ -57,12 +57,13 @@ export default function CollaboratorDetailPage() {
     load();
   }, [load]);
 
-  const myEventPlaceIds = useMemo(() => {
+  const myPlaceIds = useMemo(() => {
     const ids = new Set<string>();
     events.forEach((e) => e.placeId && ids.add(e.placeId));
+    posts.forEach((p) => p.placeId && ids.add(p.placeId));
     return ids;
-  }, [events]);
-  const myPlaces = places.filter((p) => myEventPlaceIds.has(p.id));
+  }, [events, posts]);
+  const myPlaces = places.filter((p) => myPlaceIds.has(p.id));
 
   const collaboratorById = useMemo(
     () => new Map(allCollaborators.map((c) => [c.id, c])),

@@ -12,6 +12,7 @@ export default function PlacePanel({
   onCancel,
   onDelete,
   onLocationPicked,
+  allowMapClick = true,
 }: {
   /** A place being created (lat/lng + optional name prefilled) or edited (has an id). */
   place: { id?: string; name: string; address?: string; lat: number; lng: number; placeTypeTagIds: string[]; notes: string };
@@ -22,6 +23,9 @@ export default function PlacePanel({
   onDelete?: () => void;
   /** Called when the researcher picks an address search result, to re-center the map there. */
   onLocationPicked: (lat: number, lng: number) => void;
+  /** Whether this panel sits next to an actual Leaflet map the researcher can click
+   * (true on the Map screen; false where it's used standalone, e.g. the Inbox). */
+  allowMapClick?: boolean;
 }) {
   const [name, setName] = useState(place.name);
   const [address, setAddress] = useState(place.address ?? '');
@@ -95,9 +99,11 @@ export default function PlacePanel({
               ))}
             </div>
           )}
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.3rem' }}>
-            Or click anywhere on the map to drop a pin there instead.
-          </div>
+          {allowMapClick && (
+            <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.3rem' }}>
+              Or click anywhere on the map to drop a pin there instead.
+            </div>
+          )}
         </div>
       )}
 
@@ -110,8 +116,27 @@ export default function PlacePanel({
           <FieldLabel>Address</FieldLabel>
           <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Address (optional)" style={inputStyle} />
         </div>
-        <div style={{ fontSize: '0.78rem', color: 'var(--color-text-muted)' }}>
-          {lat.toFixed(5)}, {lng.toFixed(5)}
+        <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ flex: 1 }}>
+            <FieldLabel>Latitude</FieldLabel>
+            <input
+              type="number"
+              step="any"
+              value={lat}
+              onChange={(e) => setLat(Number(e.target.value))}
+              style={inputStyle}
+            />
+          </div>
+          <div style={{ flex: 1 }}>
+            <FieldLabel>Longitude</FieldLabel>
+            <input
+              type="number"
+              step="any"
+              value={lng}
+              onChange={(e) => setLng(Number(e.target.value))}
+              style={inputStyle}
+            />
+          </div>
         </div>
         <div>
           <FieldLabel>Type</FieldLabel>

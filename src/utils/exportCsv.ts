@@ -34,7 +34,8 @@ connections.csv — one row per connection. Use as the EDGES table in Gephi
   - FirstDate / LastDate: date range of the posts behind a co-tagged edge (blank for manual)
 
 posts.csv — one row per post
-  Id, PostDate, PostUrl, CaptionNotes, Interpretation, CollaboratorNames, EventName, Tags
+  Id, PostDate, PostUrl, CaptionNotes, Interpretation, CollaboratorNames, EventName, PlaceName, Tags
+  - PlaceName: the post's own location if set, independent of its linked event
 
 events.csv — one row per event
   Id, Name, StartDate, EndDate, PlaceName, Description, Interpretation, CollaboratorNames, Tags, PostCount
@@ -120,7 +121,7 @@ export async function exportCsvBundle(): Promise<void> {
   );
 
   const postsCsv = toCSV(
-    ['Id', 'PostDate', 'PostUrl', 'CaptionNotes', 'Interpretation', 'CollaboratorNames', 'EventName', 'Tags'],
+    ['Id', 'PostDate', 'PostUrl', 'CaptionNotes', 'Interpretation', 'CollaboratorNames', 'EventName', 'PlaceName', 'Tags'],
     posts.map((p: Post) => [
       p.id,
       p.postDate,
@@ -129,6 +130,7 @@ export async function exportCsvBundle(): Promise<void> {
       stripHtml(p.interpretation),
       collaboratorNames(p.collaboratorIds),
       p.eventId ? eventById.get(p.eventId)?.name ?? '' : '',
+      p.placeId ? placeById.get(p.placeId)?.name ?? '' : '',
       tagLabels(p.tagIds),
     ]),
   );

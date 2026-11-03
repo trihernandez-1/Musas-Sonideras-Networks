@@ -1,10 +1,11 @@
-import { getAllCollaborators, getAllEvents, getAllPlaces, getAllTags } from '../db/repos';
+import { getAllCollaborators, getAllEvents, getAllPlaces, getAllPosts, getAllTags } from '../db/repos';
 import { downloadText } from './download';
 
 export async function exportGeoJson(): Promise<void> {
-  const [places, events, collaborators, tags] = await Promise.all([
+  const [places, events, posts, collaborators, tags] = await Promise.all([
     getAllPlaces(),
     getAllEvents(),
+    getAllPosts(),
     getAllCollaborators(),
     getAllTags(),
   ]);
@@ -43,6 +44,23 @@ export async function exportGeoJson(): Promise<void> {
             placeName: place.name,
             collaborators: event.collaboratorIds.map((cid) => collaboratorById.get(cid)?.name).filter(Boolean).join('; '),
             tags: tagLabels(event.tagIds),
+          },
+        };
+      }),
+    ...posts
+      .filter((p) => p.placeId && placeById.has(p.placeId))
+      .map((post) => {
+        const place = placeById.get(post.placeId!)!;
+        return {
+          type: 'Feature' as const,
+          geometry: { type: 'Point' as const, coordinates: [place.lng, place.lat] },
+          properties: {
+            kind: 'post',
+            id: post.id,
+            postDate: post.postDate,
+            placeName: place.name,
+            collaborators: post.collaboratorIds.map((cid) => collaboratorById.get(cid)?.name).filter(Boolean).join('; '),
+            tags: tagLabels(post.tagIds),
           },
         };
       }),

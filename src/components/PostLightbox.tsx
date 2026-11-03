@@ -8,12 +8,14 @@ export default function PostLightbox({
   collaboratorById,
   tagById,
   eventName,
+  placeName,
   onClose,
 }: {
   post: Post;
   collaboratorById: Map<string, Collaborator>;
   tagById: Map<string, Tag>;
   eventName?: string;
+  placeName?: string;
   onClose: () => void;
 }) {
   return (
@@ -37,6 +39,7 @@ export default function PostLightbox({
           <div style={{ color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
             {post.postDate}
             {eventName && <> · {eventName}</>}
+            {placeName && <> · {placeName}</>}
           </div>
           {post.postUrl && (
             <div style={{ marginBottom: '0.5rem' }}>

@@ -77,8 +77,10 @@ no server, no privacy risk) but also means:
 - **Home** — project dashboard: record counts, demo data, backup export/import,
   and data exports (CSV for Gephi/R, GeoJSON for QGIS).
 - **Inbox** — fast post entry: drop/paste screenshots, tag collaborators (search
-  or quick-create), link or create an event, caption notes, a rich-text
-  interpretation field, and your own tags.
+  or quick-create), link or create an event, set a location (search an
+  address or add one by hand — independent of any linked event, since not
+  every post belongs to a formal event, and it shows up as its own pin on the
+  Map), caption notes, a rich-text interpretation field, and your own tags.
 - **Collaborators** — searchable card grid with tag filtering; each profile
   shows description, tags, every post/event they appear in, their connections,
   a small map, and prints to a clean profile sheet.

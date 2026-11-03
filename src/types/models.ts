@@ -50,6 +50,9 @@ export interface Post {
   interpretation: string; // rich text stored as HTML
   collaboratorIds: ID[];
   eventId?: ID;
+  /** Where this post happened, if that's meaningful on its own (independent of any linked
+   * event — not every post belongs to a formal event, but many still have a place). */
+  placeId?: ID;
   tagIds: ID[];
   createdAt: string;
   updatedAt: string;
