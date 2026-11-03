@@ -171,6 +171,14 @@ export default function CollaboratorDetailPage() {
                 rows={3}
                 style={{ ...inputStyle, resize: 'vertical' }}
               />
+              <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                <input
+                  type="checkbox"
+                  checked={draft.isCentral ?? false}
+                  onChange={(e) => setDraft({ ...draft, isCentral: e.target.checked })}
+                />
+                This is Musas Sonideras — the network's central node
+              </label>
               <div>
                 <label style={{ fontWeight: 700, display: 'block', marginBottom: '0.3rem' }}>First seen</label>
                 <input
@@ -214,6 +222,23 @@ export default function CollaboratorDetailPage() {
           ) : (
             <>
               <h1 style={{ marginBottom: '0.2rem' }}>{collaborator.name}</h1>
+              {collaborator.isCentral && (
+                <div
+                  style={{
+                    display: 'inline-block',
+                    fontSize: '0.72rem',
+                    letterSpacing: '0.06em',
+                    textTransform: 'uppercase',
+                    color: 'var(--color-primary)',
+                    border: '1px solid var(--color-primary)',
+                    borderRadius: 'var(--radius-sm)',
+                    padding: '0.1em 0.5em',
+                    marginBottom: '0.4rem',
+                  }}
+                >
+                  Central node
+                </div>
+              )}
               {collaborator.instagramHandle && (
                 <div style={{ color: 'var(--color-accent-2)', marginBottom: '0.5rem' }}>
                   @{collaborator.instagramHandle}

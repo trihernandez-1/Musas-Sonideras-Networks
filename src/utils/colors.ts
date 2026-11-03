@@ -23,6 +23,14 @@ export function hashColor(seed: string): string {
   return TAG_PALETTE[hash % TAG_PALETTE.length];
 }
 
+/** Reads a CSS custom property's current resolved value (e.g. for use as an SVG fill,
+ * where var() support is inconsistent). Falls back if the property isn't set yet. */
+export function readCSSVar(name: string, fallback: string): string {
+  if (typeof document === 'undefined') return fallback;
+  const value = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  return value || fallback;
+}
+
 /** Picks readable text (near-black or near-white) against a given hex background color. */
 export function contrastText(hex: string): string {
   const clean = hex.replace('#', '');

@@ -252,3 +252,80 @@ select {
   color: var(--color-text);
   border-color: var(--color-text-muted);
 }
+
+/* Dual-handle date range slider: two overlapping range inputs, visible track hidden,
+   only their thumbs are interactive, drawn over a custom rail/fill/mark. */
+.range-slider-track {
+  position: relative;
+  height: 28px;
+}
+
+.range-slider-rail {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--color-border);
+}
+
+.range-slider-fill {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  transform: translateY(-50%);
+  background: var(--color-primary);
+}
+
+.range-slider-mark {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--color-text-muted);
+}
+
+.range-slider-input {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 28px;
+  margin: 0;
+  background: transparent;
+  pointer-events: none;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.range-slider-input::-webkit-slider-runnable-track {
+  background: transparent;
+}
+
+.range-slider-input::-moz-range-track {
+  background: transparent;
+}
+
+.range-slider-input::-webkit-slider-thumb {
+  appearance: none;
+  -webkit-appearance: none;
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid var(--color-surface-raised);
+  cursor: pointer;
+  margin-top: 7px;
+}
+
+.range-slider-input::-moz-range-thumb {
+  pointer-events: auto;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--color-primary);
+  border: 2px solid var(--color-surface-raised);
+  cursor: pointer;
+}

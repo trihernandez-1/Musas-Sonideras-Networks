@@ -117,6 +117,27 @@ export async function deleteCollaborator(id: string): Promise<void> {
   await tx.done;
 }
 
+/** Saves a hand-dragged node position from the Network view, without bumping updatedAt
+ * (repositioning isn't a content edit worth surfacing anywhere). */
+export async function setCollaboratorPosition(id: string, x: number, y: number): Promise<void> {
+  const db = await getDB();
+  const c = await db.get('collaborators', id);
+  if (!c) return;
+  await db.put('collaborators', { ...c, pinnedX: x, pinnedY: y });
+}
+
+export async function clearAllCollaboratorPositions(): Promise<void> {
+  const db = await getDB();
+  const all = await db.getAll('collaborators');
+  const tx = db.transaction('collaborators', 'readwrite');
+  for (const c of all) {
+    if (c.pinnedX !== undefined || c.pinnedY !== undefined) {
+      await tx.store.put({ ...c, pinnedX: undefined, pinnedY: undefined });
+    }
+  }
+  await tx.done;
+}
+
 /** Quick-create a collaborator from just a handle, used in the fast tagging flow. */
 export async function quickCreateCollaborator(handle: string): Promise<Collaborator> {
   const cleaned = handle.trim().replace(/^@/, '');

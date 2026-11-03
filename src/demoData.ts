@@ -95,6 +95,7 @@ export async function loadDemoData(): Promise<void> {
     tagIds: [sonideroTag.id],
     firstSeenDate: '2022-01-15',
     notes: 'Nodo central de la red. [DEMO]',
+    isCentral: true,
   });
   const djAna = await upsertCollaborator({
     name: 'DJ Ana Reyes (demo)',

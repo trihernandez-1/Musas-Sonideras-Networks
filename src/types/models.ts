@@ -30,6 +30,13 @@ export interface Collaborator {
   firstSeenDate?: string; // ISO date
   notes: string;
   profileImageId?: ID;
+  /** Marks this collaborator as the network's anchor (e.g. Musas Sonideras itself) —
+   * always shown in the Network view, unaffected by tag/date filters. */
+  isCentral?: boolean;
+  /** Pinned position in the Network view, set by dragging. Lets the researcher hand-arrange
+   * a layout for a thesis screenshot without the force simulation drifting it back. */
+  pinnedX?: number;
+  pinnedY?: number;
   createdAt: string;
   updatedAt: string;
 }
