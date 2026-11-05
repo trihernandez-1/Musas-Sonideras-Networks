@@ -86,7 +86,7 @@ no server, no privacy risk) but also means:
 - **Collaborators** — searchable card grid with tag filtering; each profile
   shows description, tags, every post/event they appear in, their connections,
   a small map, and prints to a clean profile sheet.
-- **Network** — two modes, switchable at the top:
+- **Network** — three modes, switchable at the top:
   - **Aggregate**: a force-directed graph (collaborators as nodes, sized by
     post count): solid lines for co-tagged connections, dashed for ones you
     draw by hand (drag from node to node); filter by tag, color by a chosen
@@ -96,7 +96,13 @@ no server, no privacy risk) but also means:
   - **By event**: pick one event to see just its participants in a simple
     hub diagram, colored by the role you gave each person (set roles from
     the event's own page, under "Who did what").
-  Both export as SVG or PNG.
+  - **Analysis**: standard network-science measures (degree, density,
+    connected components, diameter, average path length, clustering
+    coefficient — following Barabási's *Network Science*, Ch. 2), computed
+    on a graph where two collaborators are linked if they shared at least
+    one event. Run it over one event or all of them, with plain-language
+    explanations of each measure and a CSV export of the per-person numbers.
+  Aggregate and By event both export as SVG or PNG.
 - **Map** — events as clustered pins; add a place by clicking the map or
   searching an address (OpenStreetMap Nominatim); the same tag/date filters;
   an optional overlay of lines between places that share a collaborator;

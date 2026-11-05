@@ -22,6 +22,7 @@ import TagChip from '../components/TagChip';
 import StoredImageView from '../components/StoredImageView';
 import PostHighlightPicker from '../components/PostHighlightPicker';
 import EventNetworkView from '../components/EventNetworkView';
+import NetworkAnalysisView from '../components/NetworkAnalysisView';
 import { exportSvgAsPngFile, exportSvgAsSvgFile } from '../utils/exportSvg';
 
 const MIN_RADIUS = 10;
@@ -49,7 +50,7 @@ export default function NetworkPage() {
   const [draftConnection, setDraftConnection] = useState<{ aId: string; bId: string } | null>(null);
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'aggregate' | 'byEvent'>('aggregate');
+  const [viewMode, setViewMode] = useState<'aggregate' | 'byEvent' | 'analysis'>('aggregate');
 
   const load = useCallback(async () => {
     const [c, conn, p] = await Promise.all([getAllCollaborators(), getAllConnections(), getAllPosts()]);
@@ -252,11 +253,16 @@ export default function NetworkPage() {
           <button type="button" className={viewMode === 'byEvent' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('byEvent')}>
             By event
           </button>
+          <button type="button" className={viewMode === 'analysis' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('analysis')}>
+            Analysis
+          </button>
         </div>
       </div>
 
       {viewMode === 'byEvent' ? (
         <EventNetworkView />
+      ) : viewMode === 'analysis' ? (
+        <NetworkAnalysisView />
       ) : (
         <>
       <div className="card">
