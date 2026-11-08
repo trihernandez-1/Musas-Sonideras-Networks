@@ -47,8 +47,8 @@ export default function MapPage() {
   const [dateRange, setDateRange] = useState<[string, string] | null>(null);
   const [showSharedLines, setShowSharedLines] = useState(false);
 
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
+  const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
   const [placeDraft, setPlaceDraft] = useState<{ lat: number; lng: number } | null>(null);
   const [editingPlace, setEditingPlace] = useState<Place | null>(null);
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
@@ -111,18 +111,26 @@ export default function MapPage() {
     [posts, placeById, effectiveRange, tagFilterIds],
   );
 
+  // One marker per place (not per event/post), so several events or posts at the same
+  // location collapse into a single pin instead of stacking duplicate markers on top of
+  // each other — clicking it opens that place's own description first, with the events
+  // and posts there listed underneath, rather than landing on one of them at random. A
+  // place still only appears while something at it is within the active tag/date filter,
+  // matching how pins have always respected those filters.
+  const visiblePlaceIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const e of placedEvents) ids.add(e.placeId!);
+    for (const p of placedPosts) ids.add(p.placeId!);
+    return ids;
+  }, [placedEvents, placedPosts]);
+
   const markerItems = useMemo(
-    () => [
-      ...placedEvents.map((e) => {
-        const place = placeById.get(e.placeId!)!;
-        return { id: `event:${e.id}`, lat: place.lat, lng: place.lng };
+    () =>
+      Array.from(visiblePlaceIds).map((placeId) => {
+        const place = placeById.get(placeId)!;
+        return { id: `place:${placeId}`, lat: place.lat, lng: place.lng };
       }),
-      ...placedPosts.map((p) => {
-        const place = placeById.get(p.placeId!)!;
-        return { id: `post:${p.id}`, lat: place.lat, lng: place.lng };
-      }),
-    ],
-    [placedEvents, placedPosts, placeById],
+    [visiblePlaceIds, placeById],
   );
 
   // Lines between places that share a collaborator, among the currently-visible events.
@@ -163,23 +171,24 @@ export default function MapPage() {
     return lines;
   }, [showSharedLines, placedEvents, placedPosts, placeById]);
 
-  const selectedEvent = selectedEventId ? events.find((e) => e.id === selectedEventId) : null;
-  const selectedEventPlace = selectedEvent?.placeId ? placeById.get(selectedEvent.placeId) : null;
-  const selectedEventPosts = selectedEvent
-    ? selectedEvent.postIds.map((pid) => postById.get(pid)).filter((p): p is Post => Boolean(p))
-    : [];
   const selectedPost = selectedPostId ? postById.get(selectedPostId) : null;
+  const selectedPlace = selectedPlaceId ? placeById.get(selectedPlaceId) : null;
+  const selectedPlaceEvents = useMemo(
+    () => (selectedPlace ? events.filter((e) => e.placeId === selectedPlace.id).sort((a, b) => b.startDate.localeCompare(a.startDate)) : []),
+    [selectedPlace, events],
+  );
+  const selectedPlacePosts = useMemo(
+    () => (selectedPlace ? posts.filter((p) => p.placeId === selectedPlace.id).sort((a, b) => b.postDate.localeCompare(a.postDate)) : []),
+    [selectedPlace, posts],
+  );
 
   function handleMarkerClick(prefixedId: string) {
     const [kind, id] = prefixedId.split(':');
     setPlaceDraft(null);
     setEditingPlace(null);
-    if (kind === 'event') {
-      setSelectedEventId(id);
+    if (kind === 'place') {
+      setSelectedPlaceId(id);
       setSelectedPostId(null);
-    } else {
-      setSelectedPostId(id);
-      setSelectedEventId(null);
     }
   }
 
@@ -188,16 +197,17 @@ export default function MapPage() {
   }
 
   function handleMapClick(lat: number, lng: number) {
-    setSelectedEventId(null);
     setSelectedPostId(null);
+    setSelectedPlaceId(null);
     setEditingPlace(null);
     setPlaceDraft({ lat, lng });
   }
 
   async function handleSavePlace(fields: Omit<Place, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) {
-    await upsertPlace(fields);
+    const saved = await upsertPlace(fields);
     setPlaceDraft(null);
     setEditingPlace(null);
+    if (selectedPlaceId) setSelectedPlaceId(saved.id);
     await load();
   }
 
@@ -205,6 +215,7 @@ export default function MapPage() {
     if (!confirm('Delete this place? Events that used it will keep their records but lose the location.')) return;
     await deletePlace(id);
     setEditingPlace(null);
+    setSelectedPlaceId(null);
     await load();
   }
 
@@ -231,9 +242,10 @@ export default function MapPage() {
       <div className="card">
         <h1>Map</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-          Events and located posts as pins, clustered when zoomed out. Click anywhere on the
-          map, or search an address, to save a new place — then pick it from the Inbox when
-          adding a post, or from the list below for an existing event.
+          Places with events or located posts as pins, clustered when zoomed out — click one
+          to see that place's type and notes, then open any event held there. Click anywhere
+          on the map, or search an address, to save a new place — then pick it from the Inbox
+          when adding a post or event, or from the list below for an existing event.
         </p>
 
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -336,35 +348,44 @@ export default function MapPage() {
             />
           )}
 
-          {!placeDraft && !editingPlace && !selectedPost && selectedEvent && (
+          {!placeDraft && !editingPlace && !selectedPost && selectedPlace && (
             <div className="card">
-              <h2>
-                <Link to={`/events/${selectedEvent.id}`}>{selectedEvent.name}</Link>
-              </h2>
-              <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>
-                {selectedEvent.startDate}
-                {selectedEvent.endDate && selectedEvent.endDate !== selectedEvent.startDate ? ` – ${selectedEvent.endDate}` : ''}
-                {selectedEventPlace && <> · {selectedEventPlace.name}</>}
-              </div>
-              {selectedEvent.description && <p>{selectedEvent.description}</p>}
-              {selectedEvent.collaboratorIds.length > 0 && (
-                <div style={{ marginBottom: '0.75rem' }}>
-                  <FieldLabel>Collaborators</FieldLabel>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem' }}>
-                    {selectedEvent.collaboratorIds.map((cid) => (
-                      <Link key={cid} to={`/collaborators/${cid}`} style={{ fontSize: '0.85rem' }}>
-                        {collaboratorById.get(cid)?.name ?? 'Unknown'}
+              <h2>{selectedPlace.name}</h2>
+              {selectedPlace.address && (
+                <div style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem', marginBottom: '0.5rem' }}>{selectedPlace.address}</div>
+              )}
+              {selectedPlace.placeTypeTagIds.length > 0 && (
+                <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
+                  {selectedPlace.placeTypeTagIds.map((tid) => tagById.get(tid)).filter((t): t is NonNullable<typeof t> => Boolean(t)).map((tag) => (
+                    <TagChip key={tag.id} tag={tag} size="sm" />
+                  ))}
+                </div>
+              )}
+              {selectedPlace.notes ? (
+                <p>{selectedPlace.notes}</p>
+              ) : (
+                <p style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>No notes yet.</p>
+              )}
+
+              {selectedPlaceEvents.length > 0 && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <FieldLabel>Events here</FieldLabel>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+                    {selectedPlaceEvents.map((ev) => (
+                      <Link key={ev.id} to={`/events/${ev.id}`} style={{ fontSize: '0.85rem' }}>
+                        {ev.name} <span style={{ color: 'var(--color-text-muted)' }}>({ev.startDate})</span>
                       </Link>
                     ))}
                   </div>
                 </div>
               )}
-              {selectedEventPosts.length > 0 && (
-                <div>
-                  <FieldLabel>Posts</FieldLabel>
+
+              {selectedPlacePosts.length > 0 && (
+                <div style={{ marginTop: '0.75rem' }}>
+                  <FieldLabel>Posts here</FieldLabel>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {selectedEventPosts.map((post) => (
-                      <div key={post.id} style={{ width: '72px' }}>
+                    {selectedPlacePosts.map((post) => (
+                      <div key={post.id} style={{ width: '72px', cursor: 'pointer' }} onClick={() => setSelectedPostId(post.id)}>
                         {post.imageIds[0] && (
                           <StoredImageView
                             imageId={post.imageIds[0]}
@@ -378,15 +399,14 @@ export default function MapPage() {
                   </div>
                 </div>
               )}
-              {selectedEventPlace && (
-                <button type="button" className="btn ghost" style={{ marginTop: '0.75rem' }} onClick={() => setEditingPlace(selectedEventPlace)}>
-                  Edit place
-                </button>
-              )}
+
+              <button type="button" className="btn ghost" style={{ marginTop: '0.75rem' }} onClick={() => setEditingPlace(selectedPlace)}>
+                Edit place
+              </button>
             </div>
           )}
 
-          {!placeDraft && !editingPlace && !selectedEvent && !selectedPost && (
+          {!placeDraft && !editingPlace && !selectedPlace && !selectedPost && (
             <>
               {unplacedEvents.length > 0 && (
                 <div className="card">
@@ -430,7 +450,8 @@ export default function MapPage() {
                     <div
                       key={p.id}
                       onClick={() => {
-                        setEditingPlace(p);
+                        setSelectedPlaceId(p.id);
+                        setSelectedPostId(null);
                         setFlyTo([p.lat, p.lng]);
                       }}
                       style={{ fontSize: '0.85rem', cursor: 'pointer', padding: '0.3rem 0', borderBottom: '1px solid var(--color-border)' }}

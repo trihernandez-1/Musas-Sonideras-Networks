@@ -109,10 +109,15 @@ no server, no privacy risk) but also means:
     plain-language explanations of each measure and a CSV export of the
     per-person numbers.
   Aggregate and By event both export as SVG or PNG.
-- **Map** — events as clustered pins; add a place by clicking the map or
-  searching an address (OpenStreetMap Nominatim); the same tag/date filters;
-  an optional overlay of lines between places that share a collaborator;
-  prints to PDF.
+- **Map** — one pin per place (clustered when zoomed out), however many
+  events or located posts it holds; every place records a venue type and
+  notes, wherever it's added from (the map itself, an event, or a post's
+  location); clicking a pin — or a place in the sidebar list — shows that
+  description first, with its events listed as links and its posts as
+  thumbnails, before you ever reach the edit form. Add a place by clicking
+  the map or searching an address (OpenStreetMap Nominatim); the same
+  tag/date filters; an optional overlay of lines between places that share a
+  collaborator; prints to PDF.
 - **Gallery** — every post and event as a wall of screenshots in date order,
   your interpretation underneath each one, filterable by tag, theme,
   collaborator, or place. Each card has a delete button — removing a post or
