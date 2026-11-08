@@ -11,12 +11,10 @@ import {
   upsertEvent,
 } from '../db/repos';
 import { useTags } from '../hooks/useTags';
-import TagMultiSelect from '../components/TagMultiSelect';
 import TagChip from '../components/TagChip';
-import CollaboratorMultiSelect from '../components/CollaboratorMultiSelect';
 import StoredImageView from '../components/StoredImageView';
-import RichTextEditor from '../components/RichTextEditor';
 import MiniMap from '../components/MiniMap';
+import EventForm from '../components/EventForm';
 import { describeCleanup } from '../utils/describeCleanup';
 
 export default function EventDetailPage() {
@@ -85,90 +83,20 @@ export default function EventDetailPage() {
       <div className="card">
         {editing ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-            <input value={draft.name} onChange={(e) => setDraft({ ...draft, name: e.target.value })} placeholder="Event name" style={inputStyle} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-              <div>
-                <FieldLabel>Start date</FieldLabel>
-                <input type="date" value={draft.startDate} onChange={(e) => setDraft({ ...draft, startDate: e.target.value })} style={inputStyle} />
-              </div>
-              <div>
-                <FieldLabel>End date (optional)</FieldLabel>
-                <input
-                  type="date"
-                  value={draft.endDate ?? ''}
-                  onChange={(e) => setDraft({ ...draft, endDate: e.target.value || undefined })}
-                  style={inputStyle}
-                />
-              </div>
-            </div>
-            <div>
-              <FieldLabel>Place</FieldLabel>
-              <select
-                value={draft.placeId ?? ''}
-                onChange={(e) => setDraft({ ...draft, placeId: e.target.value || undefined })}
-                style={inputStyle}
-              >
-                <option value="">No place yet</option>
-                {places.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <FieldLabel>Description</FieldLabel>
-              <textarea
-                value={draft.description}
-                onChange={(e) => setDraft({ ...draft, description: e.target.value })}
-                rows={3}
-                style={{ ...inputStyle, resize: 'vertical' }}
-              />
-            </div>
-            <div>
-              <FieldLabel>Your interpretation</FieldLabel>
-              <RichTextEditor value={draft.interpretation} onChange={(html) => setDraft({ ...draft, interpretation: html })} />
-            </div>
-            <div>
-              <FieldLabel>Collaborators</FieldLabel>
-              <CollaboratorMultiSelect
-                allCollaborators={collaborators}
-                selectedIds={draft.collaboratorIds}
-                onChange={(ids) => setDraft({ ...draft, collaboratorIds: ids })}
-                onCreateCollaborator={async (handle) => {
-                  const c = await quickCreateCollaborator(handle);
-                  setCollaborators((prev) => [...prev, c]);
-                  return c;
-                }}
-              />
-            </div>
-            {draft.collaboratorIds.length > 0 && (
-              <div>
-                <FieldLabel>Who did what (optional)</FieldLabel>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {draft.collaboratorIds.map((cid) => (
-                    <div key={cid} style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '0.5rem', alignItems: 'center' }}>
-                      <span style={{ fontSize: '0.9rem' }}>{collaboratorById.get(cid)?.name ?? 'Unknown'}</span>
-                      <input
-                        value={draft.collaboratorRoles?.[cid] ?? ''}
-                        onChange={(e) =>
-                          setDraft({
-                            ...draft,
-                            collaboratorRoles: { ...draft.collaboratorRoles, [cid]: e.target.value },
-                          })
-                        }
-                        placeholder="Role, e.g. DJ, Venue, Designer…"
-                        style={{ ...inputStyle, padding: '0.35rem 0.6rem' }}
-                      />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-            <div>
-              <FieldLabel>Tags</FieldLabel>
-              <TagMultiSelect allTags={tags} selectedIds={draft.tagIds} onChange={(ids) => setDraft({ ...draft, tagIds: ids })} onCreateTag={createTag} />
-            </div>
+            <EventForm
+              value={draft}
+              onChange={(patch) => setDraft({ ...draft, ...patch })}
+              places={places}
+              onPlaceCreated={(place) => setPlaces((prev) => [...prev, place])}
+              collaborators={collaborators}
+              onCreateCollaborator={async (handle) => {
+                const c = await quickCreateCollaborator(handle);
+                setCollaborators((prev) => [...prev, c]);
+                return c;
+              }}
+              tags={tags}
+              onCreateTag={createTag}
+            />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button className="btn" onClick={handleSave}>
                 Save
@@ -266,12 +194,3 @@ export default function EventDetailPage() {
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return <div style={{ fontSize: '0.75rem', letterSpacing: '0.06em', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.4rem' }}>{children}</div>;
 }
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  padding: '0.5rem 0.75rem',
-  background: 'var(--color-surface)',
-  color: 'var(--color-text)',
-};
