@@ -100,8 +100,9 @@ no server, no privacy risk) but also means:
     connected components, diameter, average path length, clustering
     coefficient — following Barabási's *Network Science*, Ch. 2), computed
     on a graph where two collaborators are linked if they shared at least
-    one event. Run it over one event or all of them, with plain-language
-    explanations of each measure and a CSV export of the per-person numbers.
+    one event. Run it over all events or a chosen set of them, with
+    plain-language explanations of each measure and a CSV export of the
+    per-person numbers.
   Aggregate and By event both export as SVG or PNG.
 - **Map** — events as clustered pins; add a place by clicking the map or
   searching an address (OpenStreetMap Nominatim); the same tag/date filters;

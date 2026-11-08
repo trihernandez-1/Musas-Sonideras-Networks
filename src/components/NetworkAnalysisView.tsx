@@ -5,7 +5,7 @@ import { getAllCollaborators, getAllEvents } from '../db/repos';
 import { analyzeNetwork, buildEventCollaborationGraph } from '../utils/networkAnalysis';
 import type { NodeMetrics } from '../utils/networkAnalysis';
 import { downloadText } from '../utils/download';
-import EventNetworkPicker from './EventNetworkPicker';
+import EntityMultiSelect from './EntityMultiSelect';
 
 type SortKey = 'degree' | 'clustering' | 'name';
 
@@ -18,8 +18,8 @@ type SortKey = 'degree' | 'clustering' | 'name';
 export default function NetworkAnalysisView() {
   const [events, setEvents] = useState<EventRecord[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [scope, setScope] = useState<'all' | 'one'>('all');
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [scope, setScope] = useState<'all' | 'custom'>('all');
+  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('degree');
 
   useEffect(() => {
@@ -31,11 +31,12 @@ export default function NetworkAnalysisView() {
 
   const collaboratorNameById = useMemo(() => new Map(collaborators.map((c) => [c.id, c.name])), [collaborators]);
 
+  const eventOptions = useMemo(() => events.map((e) => ({ id: e.id, label: e.name, sublabel: e.startDate })), [events]);
+
   const scopedEvents = useMemo(() => {
     if (scope === 'all') return events;
-    const ev = events.find((e) => e.id === selectedEventId);
-    return ev ? [ev] : [];
-  }, [scope, events, selectedEventId]);
+    return events.filter((e) => selectedEventIds.includes(e.id));
+  }, [scope, events, selectedEventIds]);
 
   const graph = useMemo(() => buildEventCollaborationGraph(scopedEvents, collaboratorNameById), [scopedEvents, collaboratorNameById]);
   const metrics = useMemo(() => analyzeNetwork(graph), [graph]);
@@ -60,11 +61,16 @@ export default function NetworkAnalysisView() {
     const csv = [headers, ...rows]
       .map((row) => row.map((cell) => (/[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell)).join(','))
       .join('\r\n');
-    const scopeLabel = scope === 'all' ? 'all-events' : (events.find((e) => e.id === selectedEventId)?.name ?? 'event').replace(/\s+/g, '-').toLowerCase();
+    const scopeLabel =
+      scope === 'all'
+        ? 'all-events'
+        : selectedEventIds.length === 1
+          ? (events.find((e) => e.id === selectedEventIds[0])?.name ?? 'event').replace(/\s+/g, '-').toLowerCase()
+          : `${selectedEventIds.length}-events`;
     downloadText(csv, `musas-sonideras-analysis-${scopeLabel}.csv`, 'text/csv');
   }
 
-  const noData = scope === 'all' ? events.length === 0 : !selectedEventId;
+  const noData = scope === 'all' ? events.length === 0 : selectedEventIds.length === 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -84,15 +90,15 @@ export default function NetworkAnalysisView() {
               <button type="button" className={scope === 'all' ? 'btn' : 'btn ghost'} onClick={() => setScope('all')}>
                 All events
               </button>
-              <button type="button" className={scope === 'one' ? 'btn' : 'btn ghost'} onClick={() => setScope('one')}>
-                One event
+              <button type="button" className={scope === 'custom' ? 'btn' : 'btn ghost'} onClick={() => setScope('custom')}>
+                Select events
               </button>
             </div>
           </div>
-          {scope === 'one' && (
-            <div>
-              <FieldLabel>Event</FieldLabel>
-              <EventNetworkPicker events={events} selectedId={selectedEventId} onChange={setSelectedEventId} />
+          {scope === 'custom' && (
+            <div style={{ minWidth: '260px' }}>
+              <FieldLabel>Events</FieldLabel>
+              <EntityMultiSelect options={eventOptions} selectedIds={selectedEventIds} onChange={setSelectedEventIds} placeholder="Search events…" />
             </div>
           )}
           {!noData && (
@@ -105,7 +111,7 @@ export default function NetworkAnalysisView() {
 
       {noData ? (
         <div className="card" style={{ color: 'var(--color-text-muted)' }}>
-          {scope === 'all' ? 'No events yet.' : 'Pick an event above to analyze it.'}
+          {scope === 'all' ? 'No events yet.' : 'Select one or more events above to analyze them.'}
         </div>
       ) : (
         <>
