@@ -30,6 +30,12 @@ export default function EventPicker({
     (e) => normalizeForSearch(e.name) === normalizeForSearch(query.trim()),
   );
 
+  async function handleCreate() {
+    const ev = await onCreateEvent(query.trim());
+    onChange(ev.id);
+    setQuery('');
+  }
+
   if (selected) {
     return (
       <div
@@ -64,6 +70,17 @@ export default function EventPicker({
         }}
         onFocus={() => setOpen(true)}
         onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            if (matches.length > 0) {
+              onChange(matches[0].id);
+              setQuery('');
+            } else if (!exactMatchExists && query.trim()) {
+              handleCreate();
+            }
+          }
+        }}
         placeholder="No linked event — type to search or create one…"
         style={{
           width: '100%',
@@ -106,11 +123,7 @@ export default function EventPicker({
           {query.trim() && !exactMatchExists && (
             <div
               onMouseDown={(e) => e.preventDefault()}
-              onClick={async () => {
-                const ev = await onCreateEvent(query.trim());
-                onChange(ev.id);
-                setQuery('');
-              }}
+              onClick={handleCreate}
               style={{
                 padding: '0.4rem 0.5rem',
                 cursor: 'pointer',
