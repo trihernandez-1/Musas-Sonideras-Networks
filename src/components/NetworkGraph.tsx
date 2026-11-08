@@ -5,6 +5,7 @@ import { select } from 'd3-selection';
 import { drag } from 'd3-drag';
 import { zoom, zoomIdentity } from 'd3-zoom';
 import { readCSSVar } from '../utils/colors';
+import { useTheme } from '../hooks/useTheme';
 
 export interface GraphNodeInput {
   id: string;
@@ -85,6 +86,7 @@ export default function NetworkGraph({
 }) {
   const internalSvgRef = useRef<SVGSVGElement>(null);
   const svgRef = externalSvgRef ?? internalSvgRef;
+  const [theme] = useTheme();
   const positionsRef = useRef<Map<string, { x: number; y: number; fx?: number | null; fy?: number | null }>>(
     new Map(),
   );
@@ -283,7 +285,7 @@ export default function NetworkGraph({
       simulation.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [nodes, edges, connectMode]);
+  }, [nodes, edges, connectMode, theme]);
 
   // Keep selection/highlight state in sync without rebuilding the whole simulation.
   useEffect(() => {
