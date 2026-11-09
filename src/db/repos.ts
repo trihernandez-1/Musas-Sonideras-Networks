@@ -2,7 +2,6 @@ import { getDB, newId, nowISO } from './db';
 import type {
   Collaborator,
   Connection,
-  EventRecord,
   FieldNote,
   Place,
   Post,
@@ -204,7 +203,6 @@ export async function upsertPost(
   };
   await db.put('posts', record);
   await rebuildCoTaggedConnections();
-  await rebuildEventPostLinks();
   return record;
 }
 
@@ -217,9 +215,9 @@ export interface OrphanCleanupSummary {
 const EMPTY_CLEANUP_SUMMARY: OrphanCleanupSummary = { tagLabels: [], themeLabels: [], collaboratorNames: [] };
 
 /**
- * After deleting a post or event, removes any tags/themes/collaborators that were only
- * ever referenced by that one record, so one-off tags and placeholder collaborators don't
- * pile up over months of use. Deliberately conservative about collaborators: one is only
+ * After deleting a post, removes any tags/themes/collaborators that were only ever
+ * referenced by that one record, so one-off tags and placeholder collaborators don't pile
+ * up over months of use. Deliberately conservative about collaborators: one is only
  * auto-removed if it's both unreferenced anywhere else AND has no content of its own
  * (no description, notes, tags, photo, or central-node flag) — a bare quick-created
  * placeholder, not a collaborator the researcher has actually written anything about.
@@ -234,10 +232,9 @@ async function cleanupOrphans(candidate: {
   }
 
   const db = await getDB();
-  const [collaborators, posts, events, places, connections, allTags, allThemes] = await Promise.all([
+  const [collaborators, posts, places, connections, allTags, allThemes] = await Promise.all([
     db.getAll('collaborators'),
     db.getAll('posts'),
-    db.getAll('events'),
     db.getAll('places'),
     db.getAll('connections'),
     db.getAll('tags'),
@@ -247,7 +244,6 @@ async function cleanupOrphans(candidate: {
   const usedTagIds = new Set<string>();
   collaborators.forEach((c) => c.tagIds.forEach((tid) => usedTagIds.add(tid)));
   posts.forEach((p) => p.tagIds.forEach((tid) => usedTagIds.add(tid)));
-  events.forEach((e) => e.tagIds.forEach((tid) => usedTagIds.add(tid)));
   places.forEach((p) => p.placeTypeTagIds.forEach((tid) => usedTagIds.add(tid)));
   const orphanedTagIds = candidate.tagIds.filter((tid) => !usedTagIds.has(tid));
 
@@ -257,7 +253,6 @@ async function cleanupOrphans(candidate: {
 
   const usedCollaboratorIds = new Set<string>();
   posts.forEach((p) => p.collaboratorIds.forEach((cid) => usedCollaboratorIds.add(cid)));
-  events.forEach((e) => e.collaboratorIds.forEach((cid) => usedCollaboratorIds.add(cid)));
   connections.forEach((c) => {
     usedCollaboratorIds.add(c.collaboratorAId);
     usedCollaboratorIds.add(c.collaboratorBId);
@@ -306,38 +301,8 @@ export async function deletePost(id: string): Promise<OrphanCleanupSummary> {
     await tx.done;
   }
   await rebuildCoTaggedConnections();
-  await rebuildEventPostLinks();
   if (!post) return EMPTY_CLEANUP_SUMMARY;
   return cleanupOrphans({ tagIds: post.tagIds, themeIds: post.themeIds ?? [], collaboratorIds: post.collaboratorIds });
-}
-
-/**
- * An event's postIds is derived data, like co-tagged connections: recomputed from every
- * post's eventId whenever a post is saved or deleted, so the two can never drift apart.
- */
-export async function rebuildEventPostLinks(): Promise<void> {
-  const db = await getDB();
-  const [posts, events] = await Promise.all([db.getAll('posts'), db.getAll('events')]);
-
-  const postIdsByEvent = new Map<string, string[]>();
-  for (const post of posts) {
-    if (!post.eventId) continue;
-    const list = postIdsByEvent.get(post.eventId) ?? [];
-    list.push(post.id);
-    postIdsByEvent.set(post.eventId, list);
-  }
-
-  const tx = db.transaction('events', 'readwrite');
-  for (const event of events) {
-    const newPostIds = postIdsByEvent.get(event.id) ?? [];
-    const unchanged =
-      newPostIds.length === event.postIds.length &&
-      newPostIds.every((pid) => event.postIds.includes(pid));
-    if (!unchanged) {
-      await tx.store.put({ ...event, postIds: newPostIds, updatedAt: nowISO() });
-    }
-  }
-  await tx.done;
 }
 
 // ---------- Places ----------
@@ -370,41 +335,6 @@ export async function upsertPlace(
 export async function deletePlace(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('places', id);
-}
-
-// ---------- Events ----------
-
-export async function getAllEvents(): Promise<EventRecord[]> {
-  const db = await getDB();
-  return db.getAll('events');
-}
-
-export async function getEvent(id: string): Promise<EventRecord | undefined> {
-  const db = await getDB();
-  return db.get('events', id);
-}
-
-export async function upsertEvent(
-  e: Omit<EventRecord, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<EventRecord, 'id' | 'createdAt'>>,
-): Promise<EventRecord> {
-  const db = await getDB();
-  const existing = e.id ? await db.get('events', e.id) : undefined;
-  const record: EventRecord = {
-    ...e,
-    id: e.id ?? newId(),
-    createdAt: existing?.createdAt ?? e.createdAt ?? nowISO(),
-    updatedAt: nowISO(),
-  };
-  await db.put('events', record);
-  return record;
-}
-
-export async function deleteEvent(id: string): Promise<OrphanCleanupSummary> {
-  const db = await getDB();
-  const event = await db.get('events', id);
-  await db.delete('events', id);
-  if (!event) return EMPTY_CLEANUP_SUMMARY;
-  return cleanupOrphans({ tagIds: event.tagIds, themeIds: [], collaboratorIds: event.collaboratorIds });
 }
 
 // ---------- Field Notes ----------

@@ -1,34 +1,38 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Collaborator, EventRecord } from '../types/models';
-import { getAllCollaborators, getAllEvents } from '../db/repos';
+import type { Collaborator, Post } from '../types/models';
+import { getAllCollaborators, getAllPosts } from '../db/repos';
 import NetworkGraph from './NetworkGraph';
 import type { GraphEdgeInput, GraphNodeInput } from './NetworkGraph';
-import EventNetworkPicker from './EventNetworkPicker';
+import PostNetworkPicker from './PostNetworkPicker';
 import { hashColor, readCSSVar } from '../utils/colors';
 import { exportSvgAsPngFile, exportSvgAsSvgFile } from '../utils/exportSvg';
 
-const EVENT_NODE_ID = '__event__';
+const POST_NODE_ID = '__post__';
 const NEUTRAL_COLOR = '#9b9490';
 
-/** A single event's participants as a simple hub-and-spoke graph, colored by the role each
+function postLabel(p: Post): string {
+  return p.name || p.captionNotes.slice(0, 40) || p.postDate;
+}
+
+/** A single record's participants as a simple hub-and-spoke graph, colored by the role each
  * person played — a focused counterpart to the aggregate Network view across everything. */
-export default function EventNetworkView() {
-  const [events, setEvents] = useState<EventRecord[]>([]);
+export default function PostNetworkView() {
+  const [posts, setPosts] = useState<Post[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
+  const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
   useEffect(() => {
-    Promise.all([getAllEvents(), getAllCollaborators()]).then(([e, c]) => {
-      setEvents(e);
+    Promise.all([getAllPosts(), getAllCollaborators()]).then(([p, c]) => {
+      setPosts(p);
       setCollaborators(c);
     });
   }, []);
 
   const collaboratorById = useMemo(() => new Map(collaborators.map((c) => [c.id, c])), [collaborators]);
-  const event = selectedEventId ? events.find((e) => e.id === selectedEventId) ?? null : null;
+  const post = selectedPostId ? posts.find((p) => p.id === selectedPostId) ?? null : null;
 
   const roleColor = useCallback((role: string | undefined): string => {
     if (!role || !role.trim()) return NEUTRAL_COLOR;
@@ -36,76 +40,76 @@ export default function EventNetworkView() {
   }, []);
 
   const graphNodes: GraphNodeInput[] = useMemo(() => {
-    if (!event) return [];
-    const eventNode: GraphNodeInput = {
-      id: EVENT_NODE_ID,
-      name: event.name,
+    if (!post) return [];
+    const postNode: GraphNodeInput = {
+      id: POST_NODE_ID,
+      name: postLabel(post),
       radius: 32,
       color: readCSSVar('--color-primary', '#5e2a52'),
       isCentral: true,
     };
-    const participantNodes: GraphNodeInput[] = event.collaboratorIds.map((cid) => ({
+    const participantNodes: GraphNodeInput[] = post.collaboratorIds.map((cid) => ({
       id: cid,
       name: collaboratorById.get(cid)?.name ?? 'Unknown',
       radius: 18,
-      color: roleColor(event.collaboratorRoles?.[cid]),
+      color: roleColor(post.collaboratorRoles?.[cid]),
       isCentral: false,
     }));
-    return [eventNode, ...participantNodes];
-  }, [event, collaboratorById, roleColor]);
+    return [postNode, ...participantNodes];
+  }, [post, collaboratorById, roleColor]);
 
   const graphEdges: GraphEdgeInput[] = useMemo(() => {
-    if (!event) return [];
-    return event.collaboratorIds.map((cid) => ({
-      id: `${EVENT_NODE_ID}-${cid}`,
-      sourceId: EVENT_NODE_ID,
+    if (!post) return [];
+    return post.collaboratorIds.map((cid) => ({
+      id: `${POST_NODE_ID}-${cid}`,
+      sourceId: POST_NODE_ID,
       targetId: cid,
       type: 'manual' as const,
       weight: 1,
     }));
-  }, [event]);
+  }, [post]);
 
   const roleLegend = useMemo(() => {
-    if (!event) return [];
+    if (!post) return [];
     const seen = new Map<string, string>();
-    event.collaboratorIds.forEach((cid) => {
-      const role = event.collaboratorRoles?.[cid];
+    post.collaboratorIds.forEach((cid) => {
+      const role = post.collaboratorRoles?.[cid];
       if (role && role.trim() && !seen.has(role)) seen.set(role, roleColor(role));
     });
     return Array.from(seen.entries());
-  }, [event, roleColor]);
+  }, [post, roleColor]);
 
-  const selectedParticipant = selectedNodeId && selectedNodeId !== EVENT_NODE_ID ? collaboratorById.get(selectedNodeId) : null;
-  const selectedRole = selectedParticipant && event ? event.collaboratorRoles?.[selectedParticipant.id] : undefined;
-  const eventNodeSelected = selectedNodeId === EVENT_NODE_ID;
+  const selectedParticipant = selectedNodeId && selectedNodeId !== POST_NODE_ID ? collaboratorById.get(selectedNodeId) : null;
+  const selectedRole = selectedParticipant && post ? post.collaboratorRoles?.[selectedParticipant.id] : undefined;
+  const postNodeSelected = selectedNodeId === POST_NODE_ID;
 
   function handleExportSvg() {
-    if (svgRef.current && event) exportSvgAsSvgFile(svgRef.current, `musas-sonideras-${fileSlug(event.name)}.svg`);
+    if (svgRef.current && post) exportSvgAsSvgFile(svgRef.current, `musas-sonideras-${fileSlug(postLabel(post))}.svg`);
   }
   async function handleExportPng() {
-    if (svgRef.current && event) await exportSvgAsPngFile(svgRef.current, `musas-sonideras-${fileSlug(event.name)}.png`);
+    if (svgRef.current && post) await exportSvgAsPngFile(svgRef.current, `musas-sonideras-${fileSlug(postLabel(post))}.png`);
   }
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div className="card">
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-          Pick one event to see just its participants, colored by the role you gave each
-          person. Set roles from the event's own page, under "Who did what."
+          Pick one record to see just its participants, colored by the role you gave each
+          person. Set roles from the record's own page, under "Who did what."
         </p>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
-            <FieldLabel>Event</FieldLabel>
-            <EventNetworkPicker
-              events={events}
-              selectedId={selectedEventId}
+            <FieldLabel>Record</FieldLabel>
+            <PostNetworkPicker
+              posts={posts}
+              selectedId={selectedPostId}
               onChange={(id) => {
-                setSelectedEventId(id);
+                setSelectedPostId(id);
                 setSelectedNodeId(null);
               }}
             />
           </div>
-          {event && (
+          {post && (
             <span style={{ display: 'flex', gap: '0.5rem' }}>
               <button type="button" className="btn ghost" onClick={handleExportSvg}>
                 Export SVG
@@ -131,11 +135,11 @@ export default function EventNetworkView() {
         )}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: selectedParticipant || eventNodeSelected ? '1fr 340px' : '1fr', gap: '1.25rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: selectedParticipant || postNodeSelected ? '1fr 340px' : '1fr', gap: '1.25rem' }}>
         <div className="card" style={{ padding: 0, height: '560px', overflow: 'hidden' }}>
-          {!event ? (
+          {!post ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-text-muted)' }}>
-              {events.length === 0 ? 'No events yet.' : 'Pick an event above to see its network.'}
+              {posts.length === 0 ? 'No posts yet.' : 'Pick a record above to see its network.'}
             </div>
           ) : (
             <NetworkGraph
@@ -154,12 +158,12 @@ export default function EventNetworkView() {
           )}
         </div>
 
-        {eventNodeSelected && event && (
+        {postNodeSelected && post && (
           <div className="card">
-            <h2>{event.name}</h2>
-            <div style={{ color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>{event.startDate}</div>
-            <Link to={`/events/${event.id}`} className="btn secondary">
-              Open full event
+            <h2>{postLabel(post)}</h2>
+            <div style={{ color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>{post.postDate}</div>
+            <Link to={`/posts/${post.id}`} className="btn secondary">
+              Open full record
             </Link>
           </div>
         )}
@@ -168,7 +172,7 @@ export default function EventNetworkView() {
           <div className="card">
             <h2>{selectedParticipant.name}</h2>
             <div style={{ color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
-              {selectedRole ? `Role: ${selectedRole}` : 'No role noted for this event.'}
+              {selectedRole ? `Role: ${selectedRole}` : 'No role noted for this record.'}
             </div>
             <Link to={`/collaborators/${selectedParticipant.id}`} className="btn secondary">
               Open full profile
@@ -181,7 +185,7 @@ export default function EventNetworkView() {
 }
 
 function fileSlug(name: string): string {
-  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'event';
+  return name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'post';
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {

@@ -8,7 +8,6 @@ export default function PostLightbox({
   collaboratorById,
   tagById,
   themeById,
-  eventName,
   placeName,
   onClose,
 }: {
@@ -16,7 +15,6 @@ export default function PostLightbox({
   collaboratorById: Map<string, Collaborator>;
   tagById: Map<string, Tag>;
   themeById?: Map<string, Tag>;
-  eventName?: string;
   placeName?: string;
   onClose: () => void;
 }) {
@@ -38,9 +36,10 @@ export default function PostLightbox({
           </div>
         )}
         <div>
+          {post.name && <h2 style={{ marginBottom: '0.3rem' }}>{post.name}</h2>}
           <div style={{ color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
             {post.postDate}
-            {eventName && <> · {eventName}</>}
+            {post.endDate && post.endDate !== post.postDate ? ` – ${post.endDate}` : ''}
             {placeName && <> · {placeName}</>}
           </div>
           {post.postUrl && (
@@ -91,9 +90,14 @@ export default function PostLightbox({
               </div>
             </div>
           )}
-          <button type="button" className="btn ghost" style={{ marginTop: '1.25rem' }} onClick={onClose}>
-            Close
-          </button>
+          <div style={{ display: 'flex', gap: '0.5rem', marginTop: '1.25rem' }}>
+            <Link to={`/posts/${post.id}`} className="btn secondary">
+              Open full record
+            </Link>
+            <button type="button" className="btn ghost" onClick={onClose}>
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>

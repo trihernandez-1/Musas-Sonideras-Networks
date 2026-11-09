@@ -1,80 +1,45 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { Collaborator, EventRecord, Place } from '../types/models';
-import {
-  getAllCollaborators,
-  getAllEvents,
-  getAllPlaces,
-  quickCreateCollaborator,
-  saveImage,
-  upsertEvent,
-  upsertPost,
-} from '../db/repos';
+import type { Collaborator, Place } from '../types/models';
+import { getAllCollaborators, getAllPlaces, quickCreateCollaborator, saveImage, upsertPost } from '../db/repos';
 import { useTags } from '../hooks/useTags';
 import { usePostThemes } from '../hooks/usePostThemes';
-import ImageDropzone from '../components/ImageDropzone';
-import CollaboratorMultiSelect from '../components/CollaboratorMultiSelect';
-import TagMultiSelect from '../components/TagMultiSelect';
-import EventPicker from '../components/EventPicker';
-import PlacePicker from '../components/PlacePicker';
-import RichTextEditor from '../components/RichTextEditor';
-import EventForm from '../components/EventForm';
-import type { EventFormValue } from '../components/EventForm';
+import PostForm from '../components/PostForm';
+import type { PostFormValue } from '../components/PostForm';
 
 function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
-const EMPTY_FORM = {
-  files: [] as File[],
-  postDate: todayISO(),
-  postUrl: '',
-  captionNotes: '',
-  interpretation: '',
-  collaboratorIds: [] as string[],
-  eventId: undefined as string | undefined,
-  placeId: undefined as string | undefined,
-  tagIds: [] as string[],
-  themeIds: [] as string[],
-};
-
-function emptyEventForm(): EventFormValue {
+function emptyForm(): PostFormValue {
   return {
-    name: '',
-    startDate: todayISO(),
+    files: [],
+    name: undefined,
+    postDate: todayISO(),
     endDate: undefined,
-    placeId: undefined,
-    description: '',
+    postUrl: '',
+    captionNotes: '',
     interpretation: '',
     collaboratorIds: [],
     collaboratorRoles: {},
+    placeId: undefined,
     tagIds: [],
+    themeIds: [],
   };
 }
 
 export default function InboxPage() {
-  const [mode, setMode] = useState<'post' | 'event'>('post');
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
-  const [events, setEvents] = useState<EventRecord[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const { tags, createTag } = useTags();
   const { themes, createTheme } = usePostThemes();
-  const [form, setForm] = useState(EMPTY_FORM);
+  const [form, setForm] = useState<PostFormValue>(emptyForm);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
-  const [eventForm, setEventForm] = useState<EventFormValue>(emptyEventForm);
-  const [savingEvent, setSavingEvent] = useState(false);
-  const [eventMessage, setEventMessage] = useState<string | null>(null);
 
   const refreshCollaborators = useCallback(async () => {
     const all = await getAllCollaborators();
     all.sort((a, b) => a.name.localeCompare(b.name, 'es'));
     setCollaborators(all);
-  }, []);
-
-  const refreshEvents = useCallback(async () => {
-    const all = await getAllEvents();
-    all.sort((a, b) => b.startDate.localeCompare(a.startDate));
-    setEvents(all);
   }, []);
 
   const refreshPlaces = useCallback(async () => {
@@ -85,13 +50,8 @@ export default function InboxPage() {
 
   useEffect(() => {
     refreshCollaborators();
-    refreshEvents();
     refreshPlaces();
-  }, [refreshCollaborators, refreshEvents, refreshPlaces]);
-
-  function update<K extends keyof typeof EMPTY_FORM>(key: K, value: (typeof EMPTY_FORM)[K]) {
-    setForm((f) => ({ ...f, [key]: value }));
-  }
+  }, [refreshCollaborators, refreshPlaces]);
 
   async function handleCreateCollaborator(handle: string) {
     const c = await quickCreateCollaborator(handle);
@@ -99,29 +59,10 @@ export default function InboxPage() {
     return c;
   }
 
-  async function handleCreateEvent(name: string) {
-    const ev = await upsertEvent({
-      name,
-      startDate: form.postDate,
-      placeId: form.placeId,
-      description: '',
-      interpretation: '',
-      postIds: [],
-      collaboratorIds: form.collaboratorIds,
-      tagIds: [],
-    });
-    await refreshEvents();
-    return ev;
-  }
-
-  function resetForNextPost() {
-    setForm({ ...EMPTY_FORM, postDate: form.postDate });
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (form.files.length === 0) {
-      setMessage('Add at least one screenshot before saving.');
+    if (form.files.length === 0 && !form.name?.trim()) {
+      setMessage('Add a screenshot or give it a name before saving — an empty record isn’t useful on its own.');
       return;
     }
     setSaving(true);
@@ -129,247 +70,60 @@ export default function InboxPage() {
     try {
       const images = await Promise.all(form.files.map((file) => saveImage(file, file.name)));
       await upsertPost({
+        name: form.name?.trim() || undefined,
         imageIds: images.map((img) => img.id),
         postDate: form.postDate,
-        postUrl: form.postUrl.trim() || undefined,
+        endDate: form.endDate,
+        postUrl: form.postUrl?.trim() || undefined,
         captionNotes: form.captionNotes,
         interpretation: form.interpretation,
         collaboratorIds: form.collaboratorIds,
-        eventId: form.eventId,
+        collaboratorRoles: form.collaboratorRoles,
         placeId: form.placeId,
         tagIds: form.tagIds,
         themeIds: form.themeIds,
       });
-      setMessage('Post saved. Add another?');
-      resetForNextPost();
+      setMessage('Saved. Add another?');
+      setForm({ ...emptyForm(), postDate: form.postDate });
     } finally {
       setSaving(false);
     }
   }
 
-  async function handleSubmitEvent(e: React.FormEvent) {
-    e.preventDefault();
-    if (!eventForm.name.trim()) {
-      setEventMessage('Give the event a name before saving.');
-      return;
-    }
-    setSavingEvent(true);
-    setEventMessage(null);
-    try {
-      await upsertEvent({
-        name: eventForm.name.trim(),
-        startDate: eventForm.startDate,
-        endDate: eventForm.endDate,
-        placeId: eventForm.placeId,
-        description: eventForm.description,
-        interpretation: eventForm.interpretation,
-        postIds: [],
-        collaboratorIds: eventForm.collaboratorIds,
-        collaboratorRoles: eventForm.collaboratorRoles,
-        tagIds: eventForm.tagIds,
-      });
-      await refreshEvents();
-      setEventMessage('Event saved. Add another?');
-      setEventForm(emptyEventForm());
-    } finally {
-      setSavingEvent(false);
-    }
-  }
-
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-      <div className="card" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap' }}>
-        <h1 style={{ marginBottom: 0 }}>{mode === 'post' ? 'Add a post' : 'Add an event'}</h1>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
-          <button type="button" className={mode === 'post' ? 'btn' : 'btn ghost'} onClick={() => setMode('post')}>
-            Add a post
-          </button>
-          <button type="button" className={mode === 'event' ? 'btn' : 'btn ghost'} onClick={() => setMode('event')}>
-            Add an event
-          </button>
-        </div>
+    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+      <div className="card">
+        <h1>Add a post</h1>
+        <p style={{ color: 'var(--color-text-muted)' }}>
+          A screenshot, a gathering, or both at once — fill in whatever applies. Nothing is
+          required except a date, though a screenshot or a name makes it worth saving.
+        </p>
       </div>
 
-      {mode === 'event' ? (
-        <form onSubmit={handleSubmitEvent} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div className="card">
-            <p style={{ color: 'var(--color-text-muted)' }}>
-              A gathering, party, or occasion you can later link posts to. Only a name and a date
-              are required — everything else you can fill in later.
-            </p>
-          </div>
-
-          {eventMessage && (
-            <div className="card" style={{ borderColor: 'var(--color-accent)' }}>
-              {eventMessage}
-            </div>
-          )}
-
-          <div className="card">
-            <EventForm
-              value={eventForm}
-              onChange={(patch) => setEventForm((f) => ({ ...f, ...patch }))}
-              places={places}
-              onPlaceCreated={(place) => setPlaces((prev) => [...prev, place].sort((a, b) => a.name.localeCompare(b.name, 'es')))}
-              collaborators={collaborators}
-              onCreateCollaborator={handleCreateCollaborator}
-              tags={tags}
-              onCreateTag={createTag}
-            />
-          </div>
-
-          <div>
-            <button type="submit" className="btn" disabled={savingEvent}>
-              {savingEvent ? 'Saving…' : 'Save event'}
-            </button>
-          </div>
-        </form>
-      ) : (
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <div className="card">
-            <p style={{ color: 'var(--color-text-muted)' }}>
-              Drop or paste screenshots, tag who's in it, and jot your read on it. Only a
-              screenshot and a date are required — everything else you can fill in later.
-            </p>
-          </div>
-
-          {message && (
-            <div className="card" style={{ borderColor: 'var(--color-accent)' }}>
-              {message}
-            </div>
-          )}
-
-          <div className="card">
-            <Label>Screenshots</Label>
-            <ImageDropzone files={form.files} onChange={(files) => update('files', files)} />
-          </div>
-
-          <div className="card" style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr 2fr' }}>
-            <div>
-              <Label>Post date</Label>
-              <input
-                type="date"
-                required
-                value={form.postDate}
-                onChange={(e) => update('postDate', e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-            <div>
-              <Label>Post link (optional)</Label>
-              <input
-                type="url"
-                placeholder="https://instagram.com/p/…"
-                value={form.postUrl}
-                onChange={(e) => update('postUrl', e.target.value)}
-                style={inputStyle}
-              />
-            </div>
-          </div>
-
-          <div className="card">
-            <Label>Tagged collaborators</Label>
-            <CollaboratorMultiSelect
-              allCollaborators={collaborators}
-              selectedIds={form.collaboratorIds}
-              onChange={(ids) => update('collaboratorIds', ids)}
-              onCreateCollaborator={handleCreateCollaborator}
-            />
-          </div>
-
-          <div className="card">
-            <Label>Linked event (optional)</Label>
-            <EventPicker
-              allEvents={events}
-              selectedId={form.eventId}
-              onChange={(id) => update('eventId', id)}
-              onCreateEvent={handleCreateEvent}
-            />
-          </div>
-
-          <div className="card">
-            <Label>Location (optional)</Label>
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: 0, marginBottom: '0.6rem' }}>
-              Where this post happened, if that's relevant — it'll show up as a pin on the Map.
-              Separate from the linked event above, since not every post belongs to one.
-            </p>
-            <PlacePicker
-              allPlaces={places}
-              selectedId={form.placeId}
-              onChange={(id) => update('placeId', id)}
-              onPlaceCreated={(place) => setPlaces((prev) => [...prev, place].sort((a, b) => a.name.localeCompare(b.name, 'es')))}
-              allTags={tags}
-              onCreateTag={createTag}
-            />
-          </div>
-
-          <div className="card">
-            <Label>Caption notes</Label>
-            <textarea
-              value={form.captionNotes}
-              onChange={(e) => update('captionNotes', e.target.value)}
-              placeholder="Transcribe or summarize the caption, hashtags, etc."
-              rows={3}
-              style={{ ...inputStyle, resize: 'vertical' }}
-            />
-          </div>
-
-          <div className="card">
-            <Label>Your interpretation</Label>
-            <RichTextEditor
-              value={form.interpretation}
-              onChange={(html) => update('interpretation', html)}
-              placeholder="What does this post tell you about the network, the moment, the collaboration?"
-            />
-          </div>
-
-          <div className="card">
-            <Label>Tags</Label>
-            <TagMultiSelect
-              allTags={tags}
-              selectedIds={form.tagIds}
-              onChange={(ids) => update('tagIds', ids)}
-              onCreateTag={createTag}
-            />
-          </div>
-
-          <div className="card">
-            <Label>Themes</Label>
-            <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: 0, marginBottom: '0.6rem' }}>
-              Your own codes for thematic analysis — a separate list from Tags above, filterable
-              in the Gallery.
-            </p>
-            <TagMultiSelect
-              allTags={themes}
-              selectedIds={form.themeIds}
-              onChange={(ids) => update('themeIds', ids)}
-              onCreateTag={createTheme}
-              placeholder="Type to search or create a theme…"
-            />
-          </div>
-
-          <div>
-            <button type="submit" className="btn" disabled={saving}>
-              {saving ? 'Saving…' : 'Save post'}
-            </button>
-          </div>
-        </form>
+      {message && (
+        <div className="card" style={{ borderColor: 'var(--color-accent)' }}>
+          {message}
+        </div>
       )}
-    </div>
+
+      <PostForm
+        value={form}
+        onChange={(patch) => setForm((f) => ({ ...f, ...patch }))}
+        collaborators={collaborators}
+        onCreateCollaborator={handleCreateCollaborator}
+        places={places}
+        onPlaceCreated={(place) => setPlaces((prev) => [...prev, place].sort((a, b) => a.name.localeCompare(b.name, 'es')))}
+        tags={tags}
+        onCreateTag={createTag}
+        themes={themes}
+        onCreateTheme={createTheme}
+      />
+
+      <div>
+        <button type="submit" className="btn" disabled={saving}>
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+    </form>
   );
 }
-
-function Label({ children }: { children: React.ReactNode }) {
-  return (
-    <label style={{ display: 'block', fontWeight: 700, marginBottom: '0.4rem' }}>{children}</label>
-  );
-}
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  border: '1px solid var(--color-border)',
-  borderRadius: 'var(--radius-md)',
-  padding: '0.5rem 0.75rem',
-  background: 'var(--color-surface)',
-  color: 'var(--color-text)',
-};

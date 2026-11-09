@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import type { Collaborator, EventRecord, Place, Post } from '../types/models';
-import { deleteEvent, deletePost, getAllCollaborators, getAllEvents, getAllPlaces, getAllPosts } from '../db/repos';
+import type { Collaborator, Place, Post } from '../types/models';
+import { deletePost, getAllCollaborators, getAllPlaces, getAllPosts } from '../db/repos';
 import { useTags } from '../hooks/useTags';
 import { usePostThemes } from '../hooks/usePostThemes';
 import TagChip from '../components/TagChip';
@@ -9,13 +8,8 @@ import StoredImageView from '../components/StoredImageView';
 import PostLightbox from '../components/PostLightbox';
 import { describeCleanup } from '../utils/describeCleanup';
 
-type GalleryItem =
-  | { kind: 'post'; date: string; post: Post }
-  | { kind: 'event'; date: string; event: EventRecord; thumbnailImageId?: string };
-
 export default function GalleryPage() {
   const [posts, setPosts] = useState<Post[]>([]);
-  const [events, setEvents] = useState<EventRecord[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const { tags, refresh: refreshTags } = useTags();
@@ -29,9 +23,8 @@ export default function GalleryPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
-    const [p, e, pl, c] = await Promise.all([getAllPosts(), getAllEvents(), getAllPlaces(), getAllCollaborators()]);
+    const [p, pl, c] = await Promise.all([getAllPosts(), getAllPlaces(), getAllCollaborators()]);
     setPosts(p);
-    setEvents(e);
     setPlaces(pl);
     setCollaborators(c);
   }, []);
@@ -41,55 +34,29 @@ export default function GalleryPage() {
   }, [refresh]);
 
   async function handleDeletePost(id: string) {
-    if (!confirm('Delete this post? Its screenshots and interpretation will be permanently removed.')) return;
+    if (!confirm('Delete this record? Its screenshots and interpretation will be permanently removed.')) return;
     if (openPostId === id) setOpenPostId(null);
     const summary = await deletePost(id);
     await Promise.all([refresh(), refreshTags(), refreshThemes()]);
-    setMessage(describeCleanup(summary) ?? 'Post deleted.');
-  }
-
-  async function handleDeleteEvent(id: string, name: string) {
-    if (!confirm(`Delete "${name}"? Posts linked to it keep their records but lose this link.`)) return;
-    const summary = await deleteEvent(id);
-    await Promise.all([refresh(), refreshTags(), refreshThemes()]);
-    setMessage(describeCleanup(summary) ?? 'Event deleted.');
+    setMessage(describeCleanup(summary) ?? 'Deleted.');
   }
 
   const tagById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
   const themeById = useMemo(() => new Map(themes.map((t) => [t.id, t])), [themes]);
   const collaboratorById = useMemo(() => new Map(collaborators.map((c) => [c.id, c])), [collaborators]);
   const placeById = useMemo(() => new Map(places.map((p) => [p.id, p])), [places]);
-  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events]);
 
-  const items: GalleryItem[] = useMemo(() => {
-    const postItems: GalleryItem[] = posts.map((post) => ({ kind: 'post', date: post.postDate, post }));
-    const eventItems: GalleryItem[] = events.map((event) => {
-      const linkedPost = posts.find((p) => p.eventId === event.id && p.imageIds.length > 0);
-      return { kind: 'event', date: event.startDate, event, thumbnailImageId: linkedPost?.imageIds[0] };
-    });
-    return [...postItems, ...eventItems].sort((a, b) => b.date.localeCompare(a.date));
-  }, [posts, events]);
+  const items = useMemo(() => [...posts].sort((a, b) => b.postDate.localeCompare(a.postDate)), [posts]);
 
   const filtered = useMemo(() => {
-    return items.filter((item) => {
-      const tagIds = item.kind === 'post' ? item.post.tagIds : item.event.tagIds;
-      const collaboratorIds = item.kind === 'post' ? item.post.collaboratorIds : item.event.collaboratorIds;
-      if (tagFilterIds.length > 0 && !tagFilterIds.some((tid) => tagIds.includes(tid))) return false;
-      if (themeFilterIds.length > 0) {
-        const themeIds = item.kind === 'post' ? (item.post.themeIds ?? []) : [];
-        if (!themeFilterIds.some((tid) => themeIds.includes(tid))) return false;
-      }
-      if (collaboratorFilterId && !collaboratorIds.includes(collaboratorFilterId)) return false;
-      if (placeFilterId) {
-        const placeId =
-          item.kind === 'event'
-            ? item.event.placeId
-            : item.post.placeId ?? (item.post.eventId ? eventById.get(item.post.eventId)?.placeId : undefined);
-        if (placeId !== placeFilterId) return false;
-      }
+    return items.filter((post) => {
+      if (tagFilterIds.length > 0 && !tagFilterIds.some((tid) => post.tagIds.includes(tid))) return false;
+      if (themeFilterIds.length > 0 && !themeFilterIds.some((tid) => (post.themeIds ?? []).includes(tid))) return false;
+      if (collaboratorFilterId && !post.collaboratorIds.includes(collaboratorFilterId)) return false;
+      if (placeFilterId && post.placeId !== placeFilterId) return false;
       return true;
     });
-  }, [items, tagFilterIds, themeFilterIds, collaboratorFilterId, placeFilterId, eventById]);
+  }, [items, tagFilterIds, themeFilterIds, collaboratorFilterId, placeFilterId]);
 
   function toggleTagFilter(id: string) {
     setTagFilterIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -114,7 +81,7 @@ export default function GalleryPage() {
       <div className="card">
         <h1>Gallery</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-          Every post and event, newest first, with your interpretation underneath.
+          Every record, newest first, with your interpretation underneath.
         </p>
 
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
@@ -165,16 +132,15 @@ export default function GalleryPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '1.25rem' }}>
-        {filtered.map((item) => (
+        {filtered.map((post) => (
           <GalleryCard
-            key={item.kind === 'post' ? `post-${item.post.id}` : `event-${item.event.id}`}
-            item={item}
+            key={post.id}
+            post={post}
             tagById={tagById}
             themeById={themeById}
             placeById={placeById}
-            onOpenPost={(id) => setOpenPostId(id)}
-            onDeletePost={handleDeletePost}
-            onDeleteEvent={handleDeleteEvent}
+            onOpen={(id) => setOpenPostId(id)}
+            onDelete={handleDeletePost}
           />
         ))}
         {filtered.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>Nothing matches these filters yet.</p>}
@@ -186,7 +152,6 @@ export default function GalleryPage() {
           collaboratorById={collaboratorById}
           tagById={tagById}
           themeById={themeById}
-          eventName={openPost.eventId ? eventById.get(openPost.eventId)?.name : undefined}
           placeName={openPost.placeId ? placeById.get(openPost.placeId)?.name : undefined}
           onClose={() => setOpenPostId(null)}
         />
@@ -196,99 +161,82 @@ export default function GalleryPage() {
 }
 
 function GalleryCard({
-  item,
+  post,
   tagById,
   themeById,
   placeById,
-  onOpenPost,
-  onDeletePost,
-  onDeleteEvent,
+  onOpen,
+  onDelete,
 }: {
-  item: GalleryItem;
+  post: Post;
   tagById: Map<string, { id: string; label: string; color?: string }>;
   themeById: Map<string, { id: string; label: string; color?: string }>;
   placeById: Map<string, Place>;
-  onOpenPost: (id: string) => void;
-  onDeletePost: (id: string) => void;
-  onDeleteEvent: (id: string, name: string) => void;
+  onOpen: (id: string) => void;
+  onDelete: (id: string) => void;
 }) {
-  const tagIds = item.kind === 'post' ? item.post.tagIds : item.event.tagIds;
-  const tagList = tagIds.map((id) => tagById.get(id)).filter((t): t is NonNullable<typeof t> => Boolean(t));
-  const themeIds = item.kind === 'post' ? item.post.themeIds ?? [] : [];
-  const themeList = themeIds.map((id) => themeById.get(id)).filter((t): t is NonNullable<typeof t> => Boolean(t));
-  const interpretation = item.kind === 'post' ? item.post.interpretation : item.event.interpretation;
-  const imageId = item.kind === 'post' ? item.post.imageIds[0] : item.thumbnailImageId;
+  const tagList = post.tagIds.map((id) => tagById.get(id)).filter((t): t is NonNullable<typeof t> => Boolean(t));
+  const themeList = (post.themeIds ?? []).map((id) => themeById.get(id)).filter((t): t is NonNullable<typeof t> => Boolean(t));
+  const imageId = post.imageIds[0];
 
-  const body = (
-    <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer', position: 'relative' }}>
-      <button
-        type="button"
-        aria-label={item.kind === 'post' ? 'Delete post' : 'Delete event'}
-        className="btn danger"
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          if (item.kind === 'post') onDeletePost(item.post.id);
-          else onDeleteEvent(item.event.id, item.event.name);
-        }}
-        style={{
-          position: 'absolute',
-          top: '8px',
-          right: '8px',
-          width: '26px',
-          height: '26px',
-          padding: 0,
-          borderRadius: '50%',
-          lineHeight: 1,
-          zIndex: 2,
-          background: 'var(--color-surface-raised)',
-        }}
-      >
-        ×
-      </button>
-      {imageId ? (
-        <StoredImageView imageId={imageId} alt={item.date} style={{ width: '100%', height: '220px', objectFit: 'cover' }} />
-      ) : (
-        <div style={{ width: '100%', height: '220px', background: 'var(--color-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', padding: '1rem', textAlign: 'center' }}>
-          {item.kind === 'event' ? item.event.name : 'No screenshot'}
-        </div>
-      )}
-      <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 }}>
-        <div style={{ fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-text-muted)' }}>
-          {item.date} · {item.kind === 'event' ? 'Event' : 'Post'}
-          {item.kind === 'event' && item.event.placeId && <> · {placeById.get(item.event.placeId)?.name}</>}
-        </div>
-        {item.kind === 'event' && <div style={{ fontWeight: 600 }}>{item.event.name}</div>}
-        {interpretation && (
-          <div
-            style={{ fontSize: '0.88rem', color: 'var(--color-text-muted)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}
-            dangerouslySetInnerHTML={{ __html: interpretation }}
-          />
-        )}
-        {(tagList.length > 0 || themeList.length > 0) && (
-          <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: 'auto' }}>
-            {tagList.map((tag) => (
-              <TagChip key={tag.id} tag={tag} size="sm" />
-            ))}
-            {themeList.map((theme) => (
-              <TagChip key={theme.id} tag={theme} size="sm" />
-            ))}
+  return (
+    <div onClick={() => onOpen(post.id)} role="button" tabIndex={0}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', display: 'flex', flexDirection: 'column', height: '100%', cursor: 'pointer', position: 'relative' }}>
+        <button
+          type="button"
+          aria-label="Delete record"
+          className="btn danger"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onDelete(post.id);
+          }}
+          style={{
+            position: 'absolute',
+            top: '8px',
+            right: '8px',
+            width: '26px',
+            height: '26px',
+            padding: 0,
+            borderRadius: '50%',
+            lineHeight: 1,
+            zIndex: 2,
+            background: 'var(--color-surface-raised)',
+          }}
+        >
+          ×
+        </button>
+        {imageId ? (
+          <StoredImageView imageId={imageId} alt={post.name ?? post.postDate} style={{ width: '100%', height: '220px', objectFit: 'cover' }} />
+        ) : (
+          <div style={{ width: '100%', height: '220px', background: 'var(--color-surface)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--color-text-muted)', padding: '1rem', textAlign: 'center' }}>
+            {post.name || 'No screenshot'}
           </div>
         )}
+        <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.4rem', flex: 1 }}>
+          <div style={{ fontSize: '0.75rem', letterSpacing: '0.04em', textTransform: 'uppercase', color: 'var(--color-text-muted)' }}>
+            {post.postDate}
+            {post.placeId && <> · {placeById.get(post.placeId)?.name}</>}
+          </div>
+          {post.name && <div style={{ fontWeight: 600 }}>{post.name}</div>}
+          {post.interpretation && (
+            <div
+              style={{ fontSize: '0.88rem', color: 'var(--color-text-muted)', overflow: 'hidden', display: '-webkit-box', WebkitLineClamp: 4, WebkitBoxOrient: 'vertical' }}
+              dangerouslySetInnerHTML={{ __html: post.interpretation }}
+            />
+          )}
+          {(tagList.length > 0 || themeList.length > 0) && (
+            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: 'auto' }}>
+              {tagList.map((tag) => (
+                <TagChip key={tag.id} tag={tag} size="sm" />
+              ))}
+              {themeList.map((theme) => (
+                <TagChip key={theme.id} tag={theme} size="sm" />
+              ))}
+            </div>
+          )}
+        </div>
       </div>
-    </div>
-  );
-
-  if (item.kind === 'event') {
-    return (
-      <Link to={`/events/${item.event.id}`} style={{ textDecoration: 'none', color: 'inherit' }}>
-        {body}
-      </Link>
-    );
-  }
-  return (
-    <div onClick={() => onOpenPost(item.post.id)} role="button" tabIndex={0}>
-      {body}
     </div>
   );
 }

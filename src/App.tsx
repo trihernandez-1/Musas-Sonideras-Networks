@@ -6,7 +6,7 @@ import CollaboratorsPage from './pages/CollaboratorsPage';
 import CollaboratorDetailPage from './pages/CollaboratorDetailPage';
 import NetworkPage from './pages/NetworkPage';
 import MapPage from './pages/MapPage';
-import EventDetailPage from './pages/EventDetailPage';
+import PostDetailPage from './pages/PostDetailPage';
 import GalleryPage from './pages/GalleryPage';
 import FieldNotesPage from './pages/FieldNotesPage';
 
@@ -51,7 +51,7 @@ export default function App() {
           <Route path="/collaborators/:id" element={<CollaboratorDetailPage />} />
           <Route path="/network" element={<NetworkPage />} />
           <Route path="/map" element={<MapPage />} />
-          <Route path="/events/:id" element={<EventDetailPage />} />
+          <Route path="/posts/:id" element={<PostDetailPage />} />
           <Route path="/gallery" element={<GalleryPage />} />
           <Route path="/field-notes" element={<FieldNotesPage />} />
         </Routes>

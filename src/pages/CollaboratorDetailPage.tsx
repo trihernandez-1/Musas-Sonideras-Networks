@@ -1,12 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import type { Collaborator, Connection, EventRecord, Place, Post } from '../types/models';
+import type { Collaborator, Connection, Place, Post } from '../types/models';
 import {
   deleteCollaborator,
   deleteImage,
   getAllCollaborators,
   getAllConnections,
-  getAllEvents,
   getAllPlaces,
   getAllPosts,
   getCollaborator,
@@ -26,7 +25,6 @@ export default function CollaboratorDetailPage() {
 
   const [collaborator, setCollaborator] = useState<Collaborator | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [events, setEvents] = useState<EventRecord[]>([]);
   const [connections, setConnections] = useState<Connection[]>([]);
   const [allCollaborators, setAllCollaborators] = useState<Collaborator[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
@@ -35,17 +33,15 @@ export default function CollaboratorDetailPage() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [c, allPosts, allEvents, allConnections, allPlaces] = await Promise.all([
+    const [c, allPosts, allConnections, allPlaces] = await Promise.all([
       getCollaborator(id),
       getAllPosts(),
-      getAllEvents(),
       getAllConnections(),
       getAllPlaces(),
     ]);
     setCollaborator(c ?? null);
     setDraft(c ?? null);
-    setPosts(allPosts.filter((p) => p.collaboratorIds.includes(id)));
-    setEvents(allEvents.filter((e) => e.collaboratorIds.includes(id)));
+    setPosts(allPosts.filter((p) => p.collaboratorIds.includes(id)).sort((a, b) => b.postDate.localeCompare(a.postDate)));
     setConnections(
       allConnections.filter((conn) => conn.collaboratorAId === id || conn.collaboratorBId === id),
     );
@@ -59,10 +55,9 @@ export default function CollaboratorDetailPage() {
 
   const myPlaceIds = useMemo(() => {
     const ids = new Set<string>();
-    events.forEach((e) => e.placeId && ids.add(e.placeId));
     posts.forEach((p) => p.placeId && ids.add(p.placeId));
     return ids;
-  }, [events, posts]);
+  }, [posts]);
   const myPlaces = places.filter((p) => myPlaceIds.has(p.id));
 
   const collaboratorById = useMemo(
@@ -93,7 +88,7 @@ export default function CollaboratorDetailPage() {
     if (!collaborator) return;
     if (
       !confirm(
-        `Delete ${collaborator.name}? This removes them from the collaborator list and from any manual connections. Posts and events that mention them keep their records but lose this link.`,
+        `Delete ${collaborator.name}? This removes them from the collaborator list and from any manual connections. Posts that mention them keep their records but lose this link.`,
       )
     )
       return;
@@ -287,11 +282,11 @@ export default function CollaboratorDetailPage() {
         {posts.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>No posts yet.</p>}
         <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
           {posts.map((post) => (
-            <div key={post.id} style={{ width: '110px' }}>
-              {post.imageIds[0] && (
+            <Link key={post.id} to={`/posts/${post.id}`} style={{ width: '110px', textDecoration: 'none', color: 'inherit' }}>
+              {post.imageIds[0] ? (
                 <StoredImageView
                   imageId={post.imageIds[0]}
-                  alt={post.postDate}
+                  alt={post.name ?? post.postDate}
                   style={{
                     width: '110px',
                     height: '140px',
@@ -300,25 +295,32 @@ export default function CollaboratorDetailPage() {
                     border: '1px solid var(--color-border)',
                   }}
                 />
+              ) : (
+                <div
+                  style={{
+                    width: '110px',
+                    height: '140px',
+                    borderRadius: 'var(--radius-md)',
+                    border: '1px solid var(--color-border)',
+                    background: 'var(--color-surface)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '0.5rem',
+                    textAlign: 'center',
+                    fontSize: '0.8rem',
+                    color: 'var(--color-text-muted)',
+                  }}
+                >
+                  {post.name || 'No screenshot'}
+                </div>
               )}
               <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>
                 {post.postDate}
               </div>
-            </div>
+            </Link>
           ))}
         </div>
-      </div>
-
-      <div className="card">
-        <h2>Events ({events.length})</h2>
-        {events.length === 0 && <p style={{ color: 'var(--color-text-muted)' }}>No events yet.</p>}
-        <ul>
-          {events.map((ev) => (
-            <li key={ev.id}>
-              <Link to={`/events/${ev.id}`}>{ev.name}</Link> — {ev.startDate}
-            </li>
-          ))}
-        </ul>
       </div>
 
       <div className="card">

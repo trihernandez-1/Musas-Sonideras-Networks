@@ -1,17 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
 import { MapContainer, Polyline, TileLayer, useMapEvents } from 'react-leaflet';
-import type { Collaborator, EventRecord, Place, Post } from '../types/models';
+import type { Collaborator, Place, Post } from '../types/models';
 import { HERITAGE_DECLARATION_DATE } from '../types/models';
-import {
-  deletePlace,
-  getAllCollaborators,
-  getAllEvents,
-  getAllPlaces,
-  getAllPosts,
-  upsertEvent,
-  upsertPlace,
-} from '../db/repos';
+import { deletePlace, getAllCollaborators, getAllPlaces, getAllPosts, upsertPlace, upsertPost } from '../db/repos';
 import { useTags } from '../hooks/useTags';
 import { usePostThemes } from '../hooks/usePostThemes';
 import ClusterLayer from '../components/ClusterLayer';
@@ -26,6 +17,10 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function postLabel(p: Post): string {
+  return p.name || p.postDate;
+}
+
 function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
@@ -37,7 +32,6 @@ function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => v
 
 export default function MapPage() {
   const [places, setPlaces] = useState<Place[]>([]);
-  const [events, setEvents] = useState<EventRecord[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const { tags, createTag } = useTags();
@@ -54,9 +48,8 @@ export default function MapPage() {
   const [flyTo, setFlyTo] = useState<[number, number] | null>(null);
 
   const load = useCallback(async () => {
-    const [p, e, po, c] = await Promise.all([getAllPlaces(), getAllEvents(), getAllPosts(), getAllCollaborators()]);
+    const [p, po, c] = await Promise.all([getAllPlaces(), getAllPosts(), getAllCollaborators()]);
     setPlaces(p);
-    setEvents(e);
     setPosts(po);
     setCollaborators(c);
   }, []);
@@ -66,16 +59,13 @@ export default function MapPage() {
   }, [load]);
 
   const { minDate, maxDate } = useMemo(() => {
-    const dates = [
-      ...events.map((e) => e.startDate),
-      ...posts.filter((p) => p.placeId).map((p) => p.postDate),
-    ].sort();
+    const dates = posts.filter((p) => p.placeId).map((p) => p.postDate).sort();
     if (dates.length === 0) {
       const now = todayISO();
       return { minDate: now, maxDate: now };
     }
     return { minDate: dates[0], maxDate: dates[dates.length - 1] };
-  }, [events, posts]);
+  }, [posts]);
 
   const effectiveRange = dateRange ?? [minDate, maxDate];
 
@@ -85,44 +75,29 @@ export default function MapPage() {
   const tagById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
   const themeById = useMemo(() => new Map(themes.map((t) => [t.id, t])), [themes]);
 
-  const eventsInRange = useMemo(
-    () =>
-      events.filter((e) => {
-        if (e.startDate < effectiveRange[0] || e.startDate > effectiveRange[1]) return false;
-        if (tagFilterIds.length > 0 && !tagFilterIds.some((tid) => e.tagIds.includes(tid))) return false;
-        return true;
-      }),
-    [events, effectiveRange, tagFilterIds],
-  );
-
-  const placedEvents = useMemo(() => eventsInRange.filter((e) => e.placeId && placeById.has(e.placeId)), [eventsInRange, placeById]);
-  const unplacedEvents = useMemo(() => eventsInRange.filter((e) => !e.placeId), [eventsInRange]);
-
-  // Posts can carry their own place independent of any linked event (not every post
-  // belongs to a formal event), so they get their own pins too.
-  const placedPosts = useMemo(
+  const postsInRange = useMemo(
     () =>
       posts.filter((p) => {
-        if (!p.placeId || !placeById.has(p.placeId)) return false;
         if (p.postDate < effectiveRange[0] || p.postDate > effectiveRange[1]) return false;
         if (tagFilterIds.length > 0 && !tagFilterIds.some((tid) => p.tagIds.includes(tid))) return false;
         return true;
       }),
-    [posts, placeById, effectiveRange, tagFilterIds],
+    [posts, effectiveRange, tagFilterIds],
   );
 
-  // One marker per place (not per event/post), so several events or posts at the same
-  // location collapse into a single pin instead of stacking duplicate markers on top of
-  // each other — clicking it opens that place's own description first, with the events
-  // and posts there listed underneath, rather than landing on one of them at random. A
-  // place still only appears while something at it is within the active tag/date filter,
-  // matching how pins have always respected those filters.
+  const placedPosts = useMemo(() => postsInRange.filter((p) => p.placeId && placeById.has(p.placeId)), [postsInRange, placeById]);
+  const unplacedPosts = useMemo(() => postsInRange.filter((p) => !p.placeId), [postsInRange]);
+
+  // One marker per place (not per record), so several records at the same location collapse
+  // into a single pin instead of stacking duplicate markers on top of each other — clicking
+  // it opens that place's own description first, with the records there listed underneath,
+  // rather than landing on one of them at random. A place still only appears while something
+  // at it is within the active tag/date filter, matching how pins have always respected those.
   const visiblePlaceIds = useMemo(() => {
     const ids = new Set<string>();
-    for (const e of placedEvents) ids.add(e.placeId!);
     for (const p of placedPosts) ids.add(p.placeId!);
     return ids;
-  }, [placedEvents, placedPosts]);
+  }, [placedPosts]);
 
   const markerItems = useMemo(
     () =>
@@ -133,15 +108,10 @@ export default function MapPage() {
     [visiblePlaceIds, placeById],
   );
 
-  // Lines between places that share a collaborator, among the currently-visible events.
+  // Lines between places that share a collaborator, among the currently-visible records.
   const sharedLines = useMemo(() => {
     if (!showSharedLines) return [];
     const collaboratorsByPlace = new Map<string, Set<string>>();
-    for (const e of placedEvents) {
-      const set = collaboratorsByPlace.get(e.placeId!) ?? new Set<string>();
-      e.collaboratorIds.forEach((cid) => set.add(cid));
-      collaboratorsByPlace.set(e.placeId!, set);
-    }
     for (const p of placedPosts) {
       const set = collaboratorsByPlace.get(p.placeId!) ?? new Set<string>();
       p.collaboratorIds.forEach((cid) => set.add(cid));
@@ -169,14 +139,10 @@ export default function MapPage() {
       }
     }
     return lines;
-  }, [showSharedLines, placedEvents, placedPosts, placeById]);
+  }, [showSharedLines, placedPosts, placeById]);
 
   const selectedPost = selectedPostId ? postById.get(selectedPostId) : null;
   const selectedPlace = selectedPlaceId ? placeById.get(selectedPlaceId) : null;
-  const selectedPlaceEvents = useMemo(
-    () => (selectedPlace ? events.filter((e) => e.placeId === selectedPlace.id).sort((a, b) => b.startDate.localeCompare(a.startDate)) : []),
-    [selectedPlace, events],
-  );
   const selectedPlacePosts = useMemo(
     () => (selectedPlace ? posts.filter((p) => p.placeId === selectedPlace.id).sort((a, b) => b.postDate.localeCompare(a.postDate)) : []),
     [selectedPlace, posts],
@@ -212,28 +178,17 @@ export default function MapPage() {
   }
 
   async function handleDeletePlace(id: string) {
-    if (!confirm('Delete this place? Events that used it will keep their records but lose the location.')) return;
+    if (!confirm('Delete this place? Records that used it will keep their data but lose the location.')) return;
     await deletePlace(id);
     setEditingPlace(null);
     setSelectedPlaceId(null);
     await load();
   }
 
-  async function handleAssignPlace(eventId: string, placeId: string) {
-    const event = events.find((e) => e.id === eventId);
-    if (!event) return;
-    await upsertEvent({
-      id: event.id,
-      name: event.name,
-      startDate: event.startDate,
-      endDate: event.endDate,
-      placeId,
-      description: event.description,
-      interpretation: event.interpretation,
-      postIds: event.postIds,
-      collaboratorIds: event.collaboratorIds,
-      tagIds: event.tagIds,
-    });
+  async function handleAssignPlace(postId: string, placeId: string) {
+    const post = posts.find((p) => p.id === postId);
+    if (!post) return;
+    await upsertPost({ ...post, placeId });
     await load();
   }
 
@@ -242,10 +197,10 @@ export default function MapPage() {
       <div className="card">
         <h1>Map</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-          Places with events or located posts as pins, clustered when zoomed out — click one
-          to see that place's type and notes, then open any event held there. Click anywhere
-          on the map, or search an address, to save a new place — then pick it from the Inbox
-          when adding a post or event, or from the list below for an existing event.
+          Places with located records as pins, clustered when zoomed out — click one to see
+          that place's type and notes, then open any record held there. Click anywhere on the
+          map, or search an address, to save a new place — then pick it from the Inbox when
+          adding a record, or from the list below for an existing one.
         </p>
 
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -367,35 +322,32 @@ export default function MapPage() {
                 <p style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>No notes yet.</p>
               )}
 
-              {selectedPlaceEvents.length > 0 && (
-                <div style={{ marginTop: '0.75rem' }}>
-                  <FieldLabel>Events here</FieldLabel>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
-                    {selectedPlaceEvents.map((ev) => (
-                      <Link key={ev.id} to={`/events/${ev.id}`} style={{ fontSize: '0.85rem' }}>
-                        {ev.name} <span style={{ color: 'var(--color-text-muted)' }}>({ev.startDate})</span>
-                      </Link>
-                    ))}
-                  </div>
-                </div>
-              )}
-
               {selectedPlacePosts.length > 0 && (
                 <div style={{ marginTop: '0.75rem' }}>
-                  <FieldLabel>Posts here</FieldLabel>
+                  <FieldLabel>Records here</FieldLabel>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    {selectedPlacePosts.map((post) => (
-                      <div key={post.id} style={{ width: '72px', cursor: 'pointer' }} onClick={() => setSelectedPostId(post.id)}>
-                        {post.imageIds[0] && (
+                    {selectedPlacePosts.map((post) =>
+                      post.imageIds[0] ? (
+                        <div key={post.id} style={{ width: '72px', cursor: 'pointer' }} onClick={() => setSelectedPostId(post.id)}>
                           <StoredImageView
                             imageId={post.imageIds[0]}
-                            alt={post.postDate}
+                            alt={postLabel(post)}
                             style={{ width: '72px', height: '90px', objectFit: 'cover', border: '1px solid var(--color-border)' }}
                           />
-                        )}
-                        <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{post.postDate}</div>
-                      </div>
-                    ))}
+                          <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>{post.postDate}</div>
+                        </div>
+                      ) : (
+                        <button
+                          key={post.id}
+                          type="button"
+                          className="chip"
+                          style={{ cursor: 'pointer', fontSize: '0.8rem' }}
+                          onClick={() => setSelectedPostId(post.id)}
+                        >
+                          {postLabel(post)}
+                        </button>
+                      ),
+                    )}
                   </div>
                 </div>
               )}
@@ -408,18 +360,18 @@ export default function MapPage() {
 
           {!placeDraft && !editingPlace && !selectedPlace && !selectedPost && (
             <>
-              {unplacedEvents.length > 0 && (
+              {unplacedPosts.length > 0 && (
                 <div className="card">
-                  <h2>Events without a place</h2>
+                  <h2>Records without a place</h2>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
-                    {unplacedEvents.map((ev) => (
-                      <div key={ev.id} style={{ fontSize: '0.85rem' }}>
+                    {unplacedPosts.map((post) => (
+                      <div key={post.id} style={{ fontSize: '0.85rem' }}>
                         <div>
-                          {ev.name} <span style={{ color: 'var(--color-text-muted)' }}>({ev.startDate})</span>
+                          {postLabel(post)} <span style={{ color: 'var(--color-text-muted)' }}>({post.postDate})</span>
                         </div>
                         <select
                           defaultValue=""
-                          onChange={(e) => e.target.value && handleAssignPlace(ev.id, e.target.value)}
+                          onChange={(e) => e.target.value && handleAssignPlace(post.id, e.target.value)}
                           style={{ ...inputStyle, marginTop: '0.25rem' }}
                           disabled={places.length === 0}
                         >
@@ -477,7 +429,6 @@ export default function MapPage() {
           collaboratorById={collaboratorById}
           tagById={tagById}
           themeById={themeById}
-          eventName={selectedPost.eventId ? events.find((e) => e.id === selectedPost.eventId)?.name : undefined}
           placeName={selectedPost.placeId ? placeById.get(selectedPost.placeId)?.name : undefined}
           onClose={() => setSelectedPostId(null)}
         />

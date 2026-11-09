@@ -1,44 +1,48 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Collaborator, EventRecord } from '../types/models';
-import { getAllCollaborators, getAllEvents } from '../db/repos';
-import { analyzeNetwork, buildEventCollaborationGraph } from '../utils/networkAnalysis';
+import type { Collaborator, Post } from '../types/models';
+import { getAllCollaborators, getAllPosts } from '../db/repos';
+import { analyzeNetwork, buildCollaborationGraph } from '../utils/networkAnalysis';
 import type { NodeMetrics } from '../utils/networkAnalysis';
 import { downloadText } from '../utils/download';
 import EntityMultiSelect from './EntityMultiSelect';
 
 type SortKey = 'degree' | 'clustering' | 'name';
 
+function postLabel(p: Post): string {
+  return p.name || p.captionNotes.slice(0, 40) || p.postDate;
+}
+
 /**
  * Network-science indicators (Barabási, "Network Science," Ch. 2) computed on the
- * collaborator-collaborator graph projected from event co-participation: two collaborators
- * are linked if they shared at least one event — the same construction as the book's
- * Hollywood actor network (actors linked if they shared a movie).
+ * collaborator-collaborator graph projected from shared records: two collaborators are
+ * linked if they appear together in at least one record — the same construction as the
+ * book's Hollywood actor network (actors linked if they shared a movie).
  */
 export default function NetworkAnalysisView() {
-  const [events, setEvents] = useState<EventRecord[]>([]);
+  const [posts, setPosts] = useState<Post[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [scope, setScope] = useState<'all' | 'custom'>('all');
-  const [selectedEventIds, setSelectedEventIds] = useState<string[]>([]);
+  const [selectedPostIds, setSelectedPostIds] = useState<string[]>([]);
   const [sortKey, setSortKey] = useState<SortKey>('degree');
 
   useEffect(() => {
-    Promise.all([getAllEvents(), getAllCollaborators()]).then(([e, c]) => {
-      setEvents(e);
+    Promise.all([getAllPosts(), getAllCollaborators()]).then(([p, c]) => {
+      setPosts(p);
       setCollaborators(c);
     });
   }, []);
 
   const collaboratorNameById = useMemo(() => new Map(collaborators.map((c) => [c.id, c.name])), [collaborators]);
 
-  const eventOptions = useMemo(() => events.map((e) => ({ id: e.id, label: e.name, sublabel: e.startDate })), [events]);
+  const postOptions = useMemo(() => posts.map((p) => ({ id: p.id, label: postLabel(p), sublabel: p.postDate })), [posts]);
 
-  const scopedEvents = useMemo(() => {
-    if (scope === 'all') return events;
-    return events.filter((e) => selectedEventIds.includes(e.id));
-  }, [scope, events, selectedEventIds]);
+  const scopedPosts = useMemo(() => {
+    if (scope === 'all') return posts;
+    return posts.filter((p) => selectedPostIds.includes(p.id));
+  }, [scope, posts, selectedPostIds]);
 
-  const graph = useMemo(() => buildEventCollaborationGraph(scopedEvents, collaboratorNameById), [scopedEvents, collaboratorNameById]);
+  const graph = useMemo(() => buildCollaborationGraph(scopedPosts, collaboratorNameById), [scopedPosts, collaboratorNameById]);
   const metrics = useMemo(() => analyzeNetwork(graph), [graph]);
 
   const sortedNodes = useMemo(() => {
@@ -63,24 +67,24 @@ export default function NetworkAnalysisView() {
       .join('\r\n');
     const scopeLabel =
       scope === 'all'
-        ? 'all-events'
-        : selectedEventIds.length === 1
-          ? (events.find((e) => e.id === selectedEventIds[0])?.name ?? 'event').replace(/\s+/g, '-').toLowerCase()
-          : `${selectedEventIds.length}-events`;
+        ? 'all-posts'
+        : selectedPostIds.length === 1
+          ? postLabel(posts.find((p) => p.id === selectedPostIds[0])!).replace(/\s+/g, '-').toLowerCase()
+          : `${selectedPostIds.length}-posts`;
     downloadText(csv, `musas-sonideras-analysis-${scopeLabel}.csv`, 'text/csv');
   }
 
-  const noData = scope === 'all' ? events.length === 0 : selectedEventIds.length === 0;
+  const noData = scope === 'all' ? posts.length === 0 : selectedPostIds.length === 0;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div className="card">
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
           Standard network-science measures (after Barabási's <em>Network Science</em>, Ch. 2),
-          computed on a graph where two collaborators are linked if they shared at least one
-          event — the same construction as a co-starring actor network, just for events
-          instead of movies. This is a different graph from the Aggregate Network view, which
-          links people co-tagged in posts.
+          computed on a graph where two collaborators are linked if they appear together in at
+          least one record — the same construction as a co-starring actor network, just for
+          records instead of movies. This is the same underlying co-appearance graph as the
+          Aggregate Network view, with graph-theoretic measures added.
         </p>
 
         <div style={{ display: 'flex', gap: '1.5rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
@@ -88,17 +92,17 @@ export default function NetworkAnalysisView() {
             <FieldLabel>Scope</FieldLabel>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button type="button" className={scope === 'all' ? 'btn' : 'btn ghost'} onClick={() => setScope('all')}>
-                All events
+                All posts
               </button>
               <button type="button" className={scope === 'custom' ? 'btn' : 'btn ghost'} onClick={() => setScope('custom')}>
-                Select events
+                Select posts
               </button>
             </div>
           </div>
           {scope === 'custom' && (
             <div style={{ minWidth: '260px' }}>
-              <FieldLabel>Events</FieldLabel>
-              <EntityMultiSelect options={eventOptions} selectedIds={selectedEventIds} onChange={setSelectedEventIds} placeholder="Search events…" />
+              <FieldLabel>Posts</FieldLabel>
+              <EntityMultiSelect options={postOptions} selectedIds={selectedPostIds} onChange={setSelectedPostIds} placeholder="Search posts…" />
             </div>
           )}
           {!noData && (
@@ -111,7 +115,7 @@ export default function NetworkAnalysisView() {
 
       {noData ? (
         <div className="card" style={{ color: 'var(--color-text-muted)' }}>
-          {scope === 'all' ? 'No events yet.' : 'Select one or more events above to analyze them.'}
+          {scope === 'all' ? 'No posts yet.' : 'Select one or more posts above to analyze them.'}
         </div>
       ) : (
         <>
@@ -119,7 +123,7 @@ export default function NetworkAnalysisView() {
             <h2>Network overview</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '0.75rem', marginTop: '0.75rem' }}>
               <StatTile label="Collaborators (N)" value={String(metrics.nodeCount)} detail="nodes in this graph" />
-              <StatTile label="Connections (L)" value={String(metrics.edgeCount)} detail="pairs who share an event" />
+              <StatTile label="Connections (L)" value={String(metrics.edgeCount)} detail="pairs who share a post" />
               <StatTile label="Average degree" value={metrics.averageDegree.toFixed(2)} detail="connections per person, on average" />
               <StatTile label="Density" value={`${(metrics.density * 100).toFixed(1)}%`} detail="of all possible connections exist" />
               <StatTile
@@ -147,7 +151,7 @@ export default function NetworkAnalysisView() {
               <summary style={{ cursor: 'pointer', fontWeight: 600 }}>What do these mean?</summary>
               <ul style={{ marginTop: '0.5rem', paddingLeft: '1.2rem', display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
                 <li><strong>Density</strong> — real-world networks are almost always sparse (a low percentage); that's normal, not a problem with your data.</li>
-                <li><strong>Components</strong> — separate, unconnected clusters. More than one usually means some events or people haven't yet been linked to the rest through shared participation.</li>
+                <li><strong>Components</strong> — separate, unconnected clusters. More than one usually means some records or people haven't yet been linked to the rest through shared participation.</li>
                 <li><strong>Diameter / average path length</strong> — computed only within the largest connected cluster (isolated people and small separate clusters have no defined distance to the rest).</li>
                 <li><strong>Clustering coefficient</strong> — for one person, the share of their collaborators who also collaborate with each other; 0 means none do, 1 means they're all mutually connected. The network average is the overall tendency toward tight-knit sub-groups rather than loose chains.</li>
               </ul>

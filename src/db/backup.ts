@@ -1,16 +1,9 @@
 import JSZip from 'jszip';
 import { getDB, clearAllData } from './db';
 import { downloadBlob } from '../utils/download';
-import type {
-  Collaborator,
-  Connection,
-  EventRecord,
-  FieldNote,
-  Place,
-  Post,
-  Tag,
-  Theme,
-} from '../types/models';
+import type { Collaborator, Connection, FieldNote, Place, Post, Tag, Theme } from '../types/models';
+import { legacyEventToPost, mergeLegacyLinkedEventIds } from './legacyMigration';
+import type { LegacyEventRecord } from './legacyMigration';
 
 interface BackupManifest {
   appName: 'musas-sonideras';
@@ -23,7 +16,9 @@ interface BackupData {
   collaborators: Collaborator[];
   posts: Post[];
   places: Place[];
-  events: EventRecord[];
+  /** Absent in a backup made after posts and events merged into one record type; present
+   * (and folded into `posts` on import) in an older backup. */
+  events?: LegacyEventRecord[];
   connections: Connection[];
   tags: Tag[];
   themes?: Theme[]; // optional: absent in backups made before themes existed
@@ -40,12 +35,11 @@ const EXT_BY_MIME: Record<string, string> = {
 /** Exports the entire project (data + images) as one .zip file and triggers a browser download. */
 export async function exportBackup(): Promise<void> {
   const db = await getDB();
-  const [collaborators, posts, places, events, connections, tags, themes, fieldNotes, images] =
+  const [collaborators, posts, places, connections, tags, themes, fieldNotes, images] =
     await Promise.all([
       db.getAll('collaborators'),
       db.getAll('posts'),
       db.getAll('places'),
-      db.getAll('events'),
       db.getAll('connections'),
       db.getAll('tags'),
       db.getAll('themes'),
@@ -54,7 +48,7 @@ export async function exportBackup(): Promise<void> {
     ]);
 
   const zip = new JSZip();
-  const data: BackupData = { collaborators, posts, places, events, connections, tags, themes, fieldNotes };
+  const data: BackupData = { collaborators, posts, places, connections, tags, themes, fieldNotes };
 
   const manifest: BackupManifest = {
     appName: 'musas-sonideras',
@@ -64,7 +58,6 @@ export async function exportBackup(): Promise<void> {
       collaborators: collaborators.length,
       posts: posts.length,
       places: places.length,
-      events: events.length,
       connections: connections.length,
       tags: tags.length,
       themes: themes.length,
@@ -126,19 +119,26 @@ export async function importBackup(file: File | Blob): Promise<ImportSummary> {
   await clearAllData();
   const db = await getDB();
 
+  // A backup made before posts and events merged into one record type still has a separate
+  // `events` array — fold those into posts (same ids) and merge field notes'
+  // `linkedEventIds` into `linkedPostIds`, the same conversion the live database runs on
+  // its own old data. A backup made after the merge has neither.
+  const legacyPosts = (data.events ?? []).map(legacyEventToPost);
+  const mergedFieldNotes = data.fieldNotes.map(mergeLegacyLinkedEventIds);
+
   const tx = db.transaction(
-    ['collaborators', 'posts', 'places', 'events', 'connections', 'tags', 'themes', 'fieldNotes', 'images'],
+    ['collaborators', 'posts', 'places', 'connections', 'tags', 'themes', 'fieldNotes', 'images'],
     'readwrite',
   );
   await Promise.all([
     ...data.collaborators.map((c) => tx.objectStore('collaborators').put(c)),
     ...data.posts.map((p) => tx.objectStore('posts').put({ ...p, themeIds: p.themeIds ?? [] })),
+    ...legacyPosts.map((p) => tx.objectStore('posts').put(p)),
     ...data.places.map((p) => tx.objectStore('places').put(p)),
-    ...data.events.map((e) => tx.objectStore('events').put(e)),
     ...data.connections.map((c) => tx.objectStore('connections').put(c)),
     ...data.tags.map((t) => tx.objectStore('tags').put(t)),
     ...(data.themes ?? []).map((t) => tx.objectStore('themes').put(t)),
-    ...data.fieldNotes.map((n) => tx.objectStore('fieldNotes').put(n)),
+    ...mergedFieldNotes.map((n) => tx.objectStore('fieldNotes').put(n)),
   ]);
   await tx.done;
 

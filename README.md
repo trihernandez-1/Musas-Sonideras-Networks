@@ -1,7 +1,7 @@
 # Musas Sonideras — Research Notebook
 
 A personal, offline research app for documenting the Musas Sonideras Instagram
-network: collaborators, posts, events, places, and the connections between them.
+network: collaborators, posts, places, and the connections between them.
 Everything is entered by hand and stored only in your browser (IndexedDB) —
 there is no server, no login, and no Instagram API involved.
 
@@ -57,7 +57,7 @@ other as a quick way to browse.
 
 ## Your data and backups
 
-Everything you enter — collaborators, posts, screenshots, events, places,
+Everything you enter — collaborators, posts, screenshots, places,
 notes — is stored locally in your browser. This is convenient (no account,
 no server, no privacy risk) but also means:
 
@@ -74,23 +74,26 @@ no server, no privacy risk) but also means:
 
 ## What's built
 
+There is one kind of record — a **post** — and it covers everything from a
+quick screenshot to a named, multi-day gathering with its own roster of who
+did what. Nothing forces you to pick between "a post" and "an event": fill in
+whichever fields apply to what you're logging. A screenshot with no name is
+just a post; a named occasion with no screenshot is just as valid a post; a
+screenshot *of* a named occasion is a third post, on its own.
+
 - **Home** — project dashboard: record counts, demo data, backup export/import,
   and data exports (CSV for Gephi/R, GeoJSON for QGIS).
-- **Inbox** — switches between two modes:
-  - **Add a post**: drop/paste screenshots, tag collaborators (search or
-    quick-create), link or create an event, set a location (search an
-    address or add one by hand — independent of any linked event, since not
-    every post belongs to a formal event, and it shows up as its own pin on
-    the Map), caption notes, a rich-text interpretation field, your own
-    tags, and themes — a separate vocabulary of thematic-analysis codes for
-    posts, so tags and analytical codes don't get mixed together.
-  - **Add an event**: a standalone event-creation form with the same fields
-    as an event's own edit screen (name, dates, place, description,
-    interpretation, collaborators with roles, tags) — events don't need a
-    post to exist; create one on its own, then link posts to it later.
+- **Inbox** — one form, every field optional except the date: drop/paste
+  screenshots, give it a name if it's a named occasion, an end date for
+  something multi-day, tag collaborators (search or quick-create) and note
+  what each one did ("Who did what"), set a location (search an address or
+  add one by hand — it shows up as its own pin on the Map), a post link,
+  caption notes, a rich-text interpretation field, your own tags, and
+  themes — a separate vocabulary of thematic-analysis codes, so tags and
+  analytical codes don't get mixed together.
 - **Collaborators** — searchable card grid with tag filtering; each profile
-  shows description, tags, every post/event they appear in, their connections,
-  a small map, and prints to a clean profile sheet.
+  shows description, tags, every post they appear in, their connections, a
+  small map, and prints to a clean profile sheet.
 - **Network** — three modes, switchable at the top:
   - **Aggregate**: a force-directed graph (collaborators as nodes, sized by
     post count): solid lines for co-tagged connections, dashed for ones you
@@ -98,35 +101,35 @@ no server, no privacy risk) but also means:
     tag, pick a single post to spotlight exactly who was tagged together in
     it, and a date-range slider marking October 6, 2023 (the heritage
     declaration) to compare before/after.
-  - **By event**: pick one event to see just its participants in a simple
-    hub diagram, colored by the role you gave each person (set roles from
-    the event's own page, under "Who did what").
+  - **By post**: pick one post to see just its participants in a simple hub
+    diagram, colored by the role you gave each person (set roles from the
+    post's own page, under "Who did what").
   - **Analysis**: standard network-science measures (degree, density,
     connected components, diameter, average path length, clustering
     coefficient — following Barabási's *Network Science*, Ch. 2), computed
-    on a graph where two collaborators are linked if they shared at least
-    one event. Run it over all events or a chosen set of them, with
+    on a graph where two collaborators are linked if they appear together in
+    at least one post. Run it over every post or a chosen set of them, with
     plain-language explanations of each measure and a CSV export of the
     per-person numbers.
-  Aggregate and By event both export as SVG or PNG.
+  Aggregate and By post both export as SVG or PNG.
 - **Map** — one pin per place (clustered when zoomed out), however many
-  events or located posts it holds; every place records a venue type and
-  notes, wherever it's added from (the map itself, an event, or a post's
-  location); clicking a pin — or a place in the sidebar list — shows that
-  description first, with its events listed as links and its posts as
-  thumbnails, before you ever reach the edit form. Add a place by clicking
-  the map or searching an address (OpenStreetMap Nominatim); the same
-  tag/date filters; an optional overlay of lines between places that share a
+  posts it holds; every place records a venue type and notes, wherever it's
+  added from (the map itself or a post's location); clicking a pin — or a
+  place in the sidebar list — shows that description first, with every post
+  held there listed underneath (thumbnail if it has a screenshot, a chip if
+  not), before you ever reach the edit form. Add a place by clicking the map
+  or searching an address (OpenStreetMap Nominatim); the same tag/date
+  filters; an optional overlay of lines between places that share a
   collaborator; prints to PDF.
-- **Gallery** — every post and event as a wall of screenshots in date order,
-  your interpretation underneath each one, filterable by tag, theme,
-  collaborator, or place. Each card has a delete button — removing a post or
-  event also cleans up any tags, themes, or placeholder collaborators that
-  were only ever used by that one record.
+- **Gallery** — every post as a wall, newest first, your interpretation
+  underneath each one, filterable by tag, theme, collaborator, or place.
+  Each card has a delete button, which also cleans up any tags, themes, or
+  placeholder collaborators that were only ever used by that one post.
+- **Post pages** (`/posts/:id`) — a full profile for any post, reached from
+  the Gallery, Map, or a collaborator's profile: every screenshot, full
+  fields, edit and delete, and prints to a clean sheet.
 - **Field Notes** — free-form notes you can link to any collaborator, post,
-  event, or place.
-- **Event pages** (`/events/:id`) — a full profile for each event, reached from
-  the Gallery or Map, which also prints to a clean profile sheet.
+  or place.
 
 Everything is stored locally in IndexedDB — screenshots included — with a demo
 dataset (clearly marked `[DEMO]`) you can load and remove at any time.
@@ -147,10 +150,13 @@ exports directly as PNG or SVG.
 src/
   types/models.ts      TypeScript definitions for every record type
   db/schema.ts          IndexedDB store/index definitions
-  db/db.ts               database connection helpers
+  db/db.ts               database connection helpers, including the migration
+                          that folds any pre-merge "event" store into posts
+  db/legacyMigration.ts   the shared old-event -> post conversion, used by
+                          both the live database migration and backup import
   db/repos.ts            CRUD functions for every record type, including the
                           logic that auto-derives "co-tagged" connections
-                          from posts, and event <-> post links
+                          from posts
   db/backup.ts            export/import as .zip
   demoData.ts              the fake demo dataset
   pages/                    one file per screen

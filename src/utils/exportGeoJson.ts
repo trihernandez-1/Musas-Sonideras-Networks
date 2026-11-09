@@ -1,10 +1,14 @@
-import { getAllCollaborators, getAllEvents, getAllPlaces, getAllPosts, getAllTags } from '../db/repos';
+import type { Post } from '../types/models';
+import { getAllCollaborators, getAllPlaces, getAllPosts, getAllTags } from '../db/repos';
 import { downloadText } from './download';
 
+function postLabel(p: Post): string {
+  return p.name || p.postDate;
+}
+
 export async function exportGeoJson(): Promise<void> {
-  const [places, events, posts, collaborators, tags] = await Promise.all([
+  const [places, posts, collaborators, tags] = await Promise.all([
     getAllPlaces(),
-    getAllEvents(),
     getAllPosts(),
     getAllCollaborators(),
     getAllTags(),
@@ -28,25 +32,6 @@ export async function exportGeoJson(): Promise<void> {
         notes: place.notes,
       },
     })),
-    ...events
-      .filter((e) => e.placeId && placeById.has(e.placeId))
-      .map((event) => {
-        const place = placeById.get(event.placeId!)!;
-        return {
-          type: 'Feature' as const,
-          geometry: { type: 'Point' as const, coordinates: [place.lng, place.lat] },
-          properties: {
-            kind: 'event',
-            id: event.id,
-            name: event.name,
-            startDate: event.startDate,
-            endDate: event.endDate ?? '',
-            placeName: place.name,
-            collaborators: event.collaboratorIds.map((cid) => collaboratorById.get(cid)?.name).filter(Boolean).join('; '),
-            tags: tagLabels(event.tagIds),
-          },
-        };
-      }),
     ...posts
       .filter((p) => p.placeId && placeById.has(p.placeId))
       .map((post) => {
@@ -57,7 +42,9 @@ export async function exportGeoJson(): Promise<void> {
           properties: {
             kind: 'post',
             id: post.id,
+            name: postLabel(post),
             postDate: post.postDate,
+            endDate: post.endDate ?? '',
             placeName: place.name,
             collaborators: post.collaboratorIds.map((cid) => collaboratorById.get(cid)?.name).filter(Boolean).join('; '),
             tags: tagLabels(post.tagIds),
@@ -73,7 +60,7 @@ export async function exportGeoJson(): Promise<void> {
 
   downloadText(
     JSON.stringify(geojson, null, 2),
-    `musas-sonideras-places-events-${new Date().toISOString().slice(0, 10)}.geojson`,
+    `musas-sonideras-places-posts-${new Date().toISOString().slice(0, 10)}.geojson`,
     'application/geo+json',
   );
 }

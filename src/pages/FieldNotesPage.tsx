@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { Collaborator, EventRecord, FieldNote, Place, Post } from '../types/models';
+import type { Collaborator, FieldNote, Place, Post } from '../types/models';
 import {
   deleteFieldNote,
   getAllCollaborators,
-  getAllEvents,
   getAllFieldNotes,
   getAllPlaces,
   getAllPosts,
@@ -20,15 +19,17 @@ const EMPTY_FORM = {
   body: '',
   linkedCollaboratorIds: [] as string[],
   linkedPostIds: [] as string[],
-  linkedEventIds: [] as string[],
   linkedPlaceIds: [] as string[],
 };
+
+function postLabel(p: Post): string {
+  return p.name || p.captionNotes.slice(0, 40) || p.postDate;
+}
 
 export default function FieldNotesPage() {
   const [notes, setNotes] = useState<FieldNote[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [events, setEvents] = useState<EventRecord[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
 
   const [form, setForm] = useState(EMPTY_FORM);
@@ -36,18 +37,16 @@ export default function FieldNotesPage() {
   const [composing, setComposing] = useState(false);
 
   const load = useCallback(async () => {
-    const [n, c, p, e, pl] = await Promise.all([
+    const [n, c, p, pl] = await Promise.all([
       getAllFieldNotes(),
       getAllCollaborators(),
       getAllPosts(),
-      getAllEvents(),
       getAllPlaces(),
     ]);
     n.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
     setNotes(n);
     setCollaborators(c);
     setPosts(p);
-    setEvents(e);
     setPlaces(pl);
   }, []);
 
@@ -57,11 +56,9 @@ export default function FieldNotesPage() {
 
   const collaboratorById = useMemo(() => new Map(collaborators.map((c) => [c.id, c])), [collaborators]);
   const postById = useMemo(() => new Map(posts.map((p) => [p.id, p])), [posts]);
-  const eventById = useMemo(() => new Map(events.map((e) => [e.id, e])), [events]);
   const placeById = useMemo(() => new Map(places.map((p) => [p.id, p])), [places]);
 
-  const postOptions = useMemo(() => posts.map((p) => ({ id: p.id, label: `Post — ${p.postDate}`, sublabel: p.captionNotes.slice(0, 40) })), [posts]);
-  const eventOptions = useMemo(() => events.map((e) => ({ id: e.id, label: e.name, sublabel: e.startDate })), [events]);
+  const postOptions = useMemo(() => posts.map((p) => ({ id: p.id, label: postLabel(p), sublabel: p.postDate })), [posts]);
   const placeOptions = useMemo(() => places.map((p) => ({ id: p.id, label: p.name, sublabel: p.address })), [places]);
 
   function update<K extends keyof typeof EMPTY_FORM>(key: K, value: (typeof EMPTY_FORM)[K]) {
@@ -80,7 +77,6 @@ export default function FieldNotesPage() {
       body: note.body,
       linkedCollaboratorIds: note.linkedCollaboratorIds,
       linkedPostIds: note.linkedPostIds,
-      linkedEventIds: note.linkedEventIds,
       linkedPlaceIds: note.linkedPlaceIds,
     });
     setEditingId(note.id);
@@ -107,7 +103,7 @@ export default function FieldNotesPage() {
       <div className="card">
         <h1>Field Notes</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-          Free-form notes and memos. Link any note to the collaborators, posts, events, or places it's about.
+          Free-form notes and memos. Link any note to the collaborators, posts, or places it's about.
         </p>
         {!composing && (
           <button type="button" className="btn" onClick={startNew}>
@@ -142,11 +138,7 @@ export default function FieldNotesPage() {
             </div>
             <div>
               <FieldLabel>Linked posts</FieldLabel>
-              <EntityMultiSelect options={postOptions} selectedIds={form.linkedPostIds} onChange={(ids) => update('linkedPostIds', ids)} placeholder="Search posts by date or caption…" />
-            </div>
-            <div>
-              <FieldLabel>Linked events</FieldLabel>
-              <EntityMultiSelect options={eventOptions} selectedIds={form.linkedEventIds} onChange={(ids) => update('linkedEventIds', ids)} placeholder="Search events…" />
+              <EntityMultiSelect options={postOptions} selectedIds={form.linkedPostIds} onChange={(ids) => update('linkedPostIds', ids)} placeholder="Search posts…" />
             </div>
             <div>
               <FieldLabel>Linked places</FieldLabel>
@@ -193,23 +185,21 @@ export default function FieldNotesPage() {
               </div>
             </div>
             {note.body && <div style={{ marginTop: '0.6rem' }} dangerouslySetInnerHTML={{ __html: note.body }} />}
-            {(note.linkedCollaboratorIds.length > 0 || note.linkedPostIds.length > 0 || note.linkedEventIds.length > 0 || note.linkedPlaceIds.length > 0) && (
+            {(note.linkedCollaboratorIds.length > 0 || note.linkedPostIds.length > 0 || note.linkedPlaceIds.length > 0) && (
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.75rem', fontSize: '0.85rem' }}>
                 {note.linkedCollaboratorIds.map((id) => (
                   <Link key={id} to={`/collaborators/${id}`}>
                     @{collaboratorById.get(id)?.name ?? '?'}
                   </Link>
                 ))}
-                {note.linkedEventIds.map((id) => (
-                  <Link key={id} to={`/events/${id}`}>
-                    {eventById.get(id)?.name ?? '?'}
-                  </Link>
-                ))}
-                {note.linkedPostIds.map((id) => (
-                  <span key={id} style={{ color: 'var(--color-text-muted)' }}>
-                    Post {postById.get(id)?.postDate ?? '?'}
-                  </span>
-                ))}
+                {note.linkedPostIds.map((id) => {
+                  const p = postById.get(id);
+                  return (
+                    <Link key={id} to={`/posts/${id}`}>
+                      {p ? postLabel(p) : '?'}
+                    </Link>
+                  );
+                })}
                 {note.linkedPlaceIds.map((id) => (
                   <span key={id} style={{ color: 'var(--color-text-muted)' }}>
                     📍 {placeById.get(id)?.name ?? '?'}

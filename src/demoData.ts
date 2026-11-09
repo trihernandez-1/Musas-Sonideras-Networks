@@ -5,7 +5,6 @@
 import {
   deleteCollaborator,
   deleteConnection,
-  deleteEvent,
   deletePlace,
   deletePost,
   deleteTag,
@@ -15,7 +14,6 @@ import {
   saveImage,
   upsertCollaborator,
   upsertManualConnection,
-  upsertEvent,
   upsertPlace,
   upsertPost,
 } from './db/repos';
@@ -26,7 +24,6 @@ interface DemoIds {
   collaboratorIds: string[];
   postIds: string[];
   placeIds: string[];
-  eventIds: string[];
   connectionIds: string[];
   tagIds: string[];
   themeIds: string[];
@@ -35,7 +32,7 @@ interface DemoIds {
 function loadTrackedIds(): DemoIds {
   const raw = localStorage.getItem(DEMO_IDS_KEY);
   if (!raw) {
-    return { collaboratorIds: [], postIds: [], placeIds: [], eventIds: [], connectionIds: [], tagIds: [], themeIds: [] };
+    return { collaboratorIds: [], postIds: [], placeIds: [], connectionIds: [], tagIds: [], themeIds: [] };
   }
   const parsed = JSON.parse(raw);
   return { themeIds: [], ...parsed };
@@ -81,7 +78,6 @@ export async function loadDemoData(): Promise<void> {
     collaboratorIds: [],
     postIds: [],
     placeIds: [],
-    eventIds: [],
     connectionIds: [],
     tagIds: [],
     themeIds: [],
@@ -163,18 +159,21 @@ export async function loadDemoData(): Promise<void> {
     'demo-post-3.png',
   );
 
-  const event = await upsertEvent({
+  // A named occasion in its own right — no screenshot of its own, just the gathering itself,
+  // who was involved, and what each of them did there.
+  const gathering = await upsertPost({
     name: 'Baile Sonidero de Primavera (demo)',
-    startDate: '2022-03-12',
+    imageIds: [],
+    postDate: '2022-03-12',
+    captionNotes: '',
     placeId: place.id,
-    description: 'Evento de ejemplo en el Salón Corona. [DEMO]',
     interpretation:
-      'Este evento de ejemplo ilustra cómo se conectan sonideras, el salón y la diseñadora gráfica a través de una sola publicación. [DEMO]',
-    postIds: [],
+      'Este evento de ejemplo ilustra cómo se conectan sonideras, el salón y la diseñadora gráfica en una sola noche. [DEMO]',
     collaboratorIds: [musas.id, djAna.id, salonCorona.id, disenadora.id],
+    collaboratorRoles: { [djAna.id]: 'DJ', [salonCorona.id]: 'Venue', [disenadora.id]: 'Designer' },
     tagIds: [sonideroTag.id],
+    themeIds: [],
   });
-  ids.eventIds.push(event.id);
 
   const post1 = await upsertPost({
     imageIds: [img1.id, img3.id],
@@ -184,7 +183,6 @@ export async function loadDemoData(): Promise<void> {
     interpretation:
       'La publicación anuncia una colaboración entre Musas Sonideras y una sonidera invitada, en un salón de baile histórico. [DEMO]',
     collaboratorIds: [musas.id, djAna.id, salonCorona.id, disenadora.id],
-    eventId: event.id,
     tagIds: [sonideroTag.id],
     themeIds: [genderTheme.id],
   });
@@ -199,8 +197,7 @@ export async function loadDemoData(): Promise<void> {
     tagIds: [governmentTag.id],
     themeIds: [heritageTheme.id],
   });
-  ids.postIds.push(post1.id, post2.id);
-  // event.postIds is derived data — upsertPost already recomputed it from post1's eventId.
+  ids.postIds.push(gathering.id, post1.id, post2.id);
 
   const manualConn = await upsertManualConnection({
     collaboratorAId: djAna.id,
@@ -218,7 +215,6 @@ export async function deleteDemoData(): Promise<void> {
   const ids = loadTrackedIds();
 
   await Promise.all(ids.postIds.map((id) => deletePost(id)));
-  await Promise.all(ids.eventIds.map((id) => deleteEvent(id)));
   await Promise.all(ids.placeIds.map((id) => deletePlace(id)));
   for (const id of ids.connectionIds) {
     try {

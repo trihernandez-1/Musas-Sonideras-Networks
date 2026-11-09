@@ -46,17 +46,30 @@ export interface Collaborator {
   updatedAt: string;
 }
 
+/**
+ * A single record: a screenshot, an occasion, or both at once — there is no separate "event"
+ * type. A quick screenshot post and a named multi-day gathering are the same kind of record,
+ * just with different fields filled in: `name`/`endDate`/`collaboratorRoles` matter more for
+ * an occasion, `imageIds`/`postUrl` more for a screenshot, but nothing requires one or the
+ * other.
+ */
 export interface Post {
   id: ID;
+  /** Optional title for this record, e.g. "Baile Sonidero de Primavera" — leave blank for an
+   * ordinary screenshot with no name of its own. */
+  name?: string;
   imageIds: ID[];
-  postDate: string; // ISO date
+  postDate: string; // ISO date — also the start date for a multi-day occasion
+  /** Optional end date, for a record spanning more than one day. */
+  endDate?: string;
   postUrl?: string;
   captionNotes: string;
   interpretation: string; // rich text stored as HTML
   collaboratorIds: ID[];
-  eventId?: ID;
-  /** Where this post happened, if that's meaningful on its own (independent of any linked
-   * event — not every post belongs to a formal event, but many still have a place). */
+  /** What each collaborator did here, e.g. "DJ", "Venue", "Designer" — free text, keyed by
+   * collaborator id. Optional and sparse: not every participant needs one noted. */
+  collaboratorRoles?: Record<ID, string>;
+  /** Where this happened, if that's meaningful — shows up as its own pin on the Map. */
   placeId?: ID;
   tagIds: ID[];
   /** Thematic-analysis codes for this post — a separate vocabulary from tagIds. */
@@ -73,24 +86,6 @@ export interface Place {
   lng: number;
   placeTypeTagIds: ID[];
   notes: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface EventRecord {
-  id: ID;
-  name: string;
-  startDate: string; // ISO date
-  endDate?: string; // ISO date, optional for multi-day events
-  placeId?: ID;
-  description: string;
-  interpretation: string;
-  postIds: ID[];
-  collaboratorIds: ID[];
-  /** What each collaborator did for this event, e.g. "DJ", "Venue", "Designer" — free text,
-   * keyed by collaborator id. Optional and sparse: not every participant needs one noted. */
-  collaboratorRoles?: Record<ID, string>;
-  tagIds: ID[];
   createdAt: string;
   updatedAt: string;
 }
@@ -120,7 +115,6 @@ export interface FieldNote {
   body: string; // rich text HTML
   linkedCollaboratorIds: ID[];
   linkedPostIds: ID[];
-  linkedEventIds: ID[];
   linkedPlaceIds: ID[];
   createdAt: string;
   updatedAt: string;

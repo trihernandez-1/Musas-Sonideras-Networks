@@ -2,16 +2,8 @@
 // Column names are kept stable and documented in the README bundled with the export.
 
 import JSZip from 'jszip';
-import type { Collaborator, Connection, EventRecord, Place, Post } from '../types/models';
-import {
-  getAllCollaborators,
-  getAllConnections,
-  getAllEvents,
-  getAllPlaces,
-  getAllPosts,
-  getAllTags,
-  getAllThemes,
-} from '../db/repos';
+import type { Collaborator, Connection, Place, Post } from '../types/models';
+import { getAllCollaborators, getAllConnections, getAllPlaces, getAllPosts, getAllTags, getAllThemes } from '../db/repos';
 import { downloadBlob, stripHtml } from './download';
 
 function csvCell(value: string | number | boolean | undefined | null): string {
@@ -30,7 +22,7 @@ const README = `Musas Sonideras — data export for Gephi / R (igraph)
 ======================================================
 
 collaborators.csv — one row per collaborator. Use as the NODES table in Gephi
-  Id, Label, InstagramHandle, Description, Tags, FirstSeenDate, IsCentral, PostCount, EventCount
+  Id, Label, InstagramHandle, Description, Tags, FirstSeenDate, IsCentral, PostCount
   - Id: matches Source/Target in connections.csv
   - Tags: semicolon-separated
 
@@ -41,14 +33,11 @@ connections.csv — one row per connection. Use as the EDGES table in Gephi
   - Weight: number of shared posts for co-tagged edges, 1 for manual edges
   - FirstDate / LastDate: date range of the posts behind a co-tagged edge (blank for manual)
 
-posts.csv — one row per post
-  Id, PostDate, PostUrl, CaptionNotes, Interpretation, CollaboratorNames, EventName, PlaceName, Tags, Themes
-  - PlaceName: the post's own location if set, independent of its linked event
-  - Themes: the post's thematic-analysis codes, a separate vocabulary from Tags
-
-events.csv — one row per event
-  Id, Name, StartDate, EndDate, PlaceName, Description, Interpretation, CollaboratorNames, Roles, Tags, PostCount
+posts.csv — one row per record (a screenshot, a named occasion, or both at once)
+  Id, Name, PostDate, EndDate, PostUrl, CaptionNotes, Interpretation, CollaboratorNames, Roles, PlaceName, Tags, Themes
+  - Name: only set for a named occasion, blank for an ordinary screenshot
   - Roles: "Name:Role" pairs, semicolon-separated, only for collaborators with a role noted
+  - Themes: the record's thematic-analysis codes, a separate vocabulary from Tags
 
 places.csv — one row per place
   Id, Name, Address, Lat, Lng, Types, Notes
@@ -61,11 +50,10 @@ igraph::graph_from_data_frame(edges, vertices = nodes).
 `;
 
 export async function exportCsvBundle(): Promise<void> {
-  const [collaborators, connections, posts, events, places, tags, themes] = await Promise.all([
+  const [collaborators, connections, posts, places, tags, themes] = await Promise.all([
     getAllCollaborators(),
     getAllConnections(),
     getAllPosts(),
-    getAllEvents(),
     getAllPlaces(),
     getAllTags(),
     getAllThemes(),
@@ -75,23 +63,18 @@ export async function exportCsvBundle(): Promise<void> {
   const themeById = new Map(themes.map((t) => [t.id, t]));
   const themeLabels = (ids: string[]) => ids.map((id) => themeById.get(id)?.label).filter(Boolean).join(';');
   const collaboratorById = new Map(collaborators.map((c) => [c.id, c]));
-  const eventById = new Map(events.map((e) => [e.id, e]));
   const placeById = new Map(places.map((p) => [p.id, p]));
 
   const tagLabels = (ids: string[]) => ids.map((id) => tagById.get(id)?.label).filter(Boolean).join(';');
   const collaboratorNames = (ids: string[]) => ids.map((id) => collaboratorById.get(id)?.name).filter(Boolean).join(';');
 
   const postCountByCollaborator = new Map<string, number>();
-  const eventCountByCollaborator = new Map<string, number>();
   for (const post of posts) {
     for (const cid of post.collaboratorIds) postCountByCollaborator.set(cid, (postCountByCollaborator.get(cid) ?? 0) + 1);
   }
-  for (const event of events) {
-    for (const cid of event.collaboratorIds) eventCountByCollaborator.set(cid, (eventCountByCollaborator.get(cid) ?? 0) + 1);
-  }
 
   const collaboratorsCsv = toCSV(
-    ['Id', 'Label', 'InstagramHandle', 'Description', 'Tags', 'FirstSeenDate', 'IsCentral', 'PostCount', 'EventCount'],
+    ['Id', 'Label', 'InstagramHandle', 'Description', 'Tags', 'FirstSeenDate', 'IsCentral', 'PostCount'],
     collaborators.map((c: Collaborator) => [
       c.id,
       c.name,
@@ -101,7 +84,6 @@ export async function exportCsvBundle(): Promise<void> {
       c.firstSeenDate ?? '',
       Boolean(c.isCentral),
       postCountByCollaborator.get(c.id) ?? 0,
-      eventCountByCollaborator.get(c.id) ?? 0,
     ]),
   );
 
@@ -133,46 +115,31 @@ export async function exportCsvBundle(): Promise<void> {
     }),
   );
 
-  const postsCsv = toCSV(
-    ['Id', 'PostDate', 'PostUrl', 'CaptionNotes', 'Interpretation', 'CollaboratorNames', 'EventName', 'PlaceName', 'Tags', 'Themes'],
-    posts.map((p: Post) => [
-      p.id,
-      p.postDate,
-      p.postUrl ?? '',
-      stripHtml(p.captionNotes),
-      stripHtml(p.interpretation),
-      collaboratorNames(p.collaboratorIds),
-      p.eventId ? eventById.get(p.eventId)?.name ?? '' : '',
-      p.placeId ? placeById.get(p.placeId)?.name ?? '' : '',
-      tagLabels(p.tagIds),
-      themeLabels(p.themeIds ?? []),
-    ]),
-  );
-
-  const collaboratorRoles = (e: EventRecord) =>
-    e.collaboratorIds
+  const collaboratorRoles = (p: Post) =>
+    p.collaboratorIds
       .map((cid) => {
-        const role = e.collaboratorRoles?.[cid];
+        const role = p.collaboratorRoles?.[cid];
         const name = collaboratorById.get(cid)?.name;
         return role && name ? `${name}:${role}` : null;
       })
       .filter((s): s is string => Boolean(s))
       .join(';');
 
-  const eventsCsv = toCSV(
-    ['Id', 'Name', 'StartDate', 'EndDate', 'PlaceName', 'Description', 'Interpretation', 'CollaboratorNames', 'Roles', 'Tags', 'PostCount'],
-    events.map((e: EventRecord) => [
-      e.id,
-      e.name,
-      e.startDate,
-      e.endDate ?? '',
-      e.placeId ? placeById.get(e.placeId)?.name ?? '' : '',
-      stripHtml(e.description),
-      stripHtml(e.interpretation),
-      collaboratorNames(e.collaboratorIds),
-      collaboratorRoles(e),
-      tagLabels(e.tagIds),
-      e.postIds.length,
+  const postsCsv = toCSV(
+    ['Id', 'Name', 'PostDate', 'EndDate', 'PostUrl', 'CaptionNotes', 'Interpretation', 'CollaboratorNames', 'Roles', 'PlaceName', 'Tags', 'Themes'],
+    posts.map((p: Post) => [
+      p.id,
+      p.name ?? '',
+      p.postDate,
+      p.endDate ?? '',
+      p.postUrl ?? '',
+      stripHtml(p.captionNotes),
+      stripHtml(p.interpretation),
+      collaboratorNames(p.collaboratorIds),
+      collaboratorRoles(p),
+      p.placeId ? placeById.get(p.placeId)?.name ?? '' : '',
+      tagLabels(p.tagIds),
+      themeLabels(p.themeIds ?? []),
     ]),
   );
 
@@ -186,7 +153,6 @@ export async function exportCsvBundle(): Promise<void> {
   zip.file('collaborators.csv', collaboratorsCsv);
   zip.file('connections.csv', connectionsCsv);
   zip.file('posts.csv', postsCsv);
-  zip.file('events.csv', eventsCsv);
   zip.file('places.csv', placesCsv);
 
   const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });

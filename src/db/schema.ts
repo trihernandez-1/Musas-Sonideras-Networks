@@ -2,7 +2,6 @@ import type { DBSchema } from 'idb';
 import type {
   Collaborator,
   Connection,
-  EventRecord,
   FieldNote,
   Place,
   Post,
@@ -12,7 +11,7 @@ import type {
 } from '../types/models';
 
 export const DB_NAME = 'musas-sonideras-db';
-export const DB_VERSION = 2;
+export const DB_VERSION = 3;
 
 export interface MusasDB extends DBSchema {
   collaborators: {
@@ -23,16 +22,11 @@ export interface MusasDB extends DBSchema {
   posts: {
     key: string;
     value: Post;
-    indexes: { 'by-date': string; 'by-event': string };
+    indexes: { 'by-date': string };
   };
   places: {
     key: string;
     value: Place;
-  };
-  events: {
-    key: string;
-    value: EventRecord;
-    indexes: { 'by-date': string; 'by-place': string };
   };
   connections: {
     key: string;

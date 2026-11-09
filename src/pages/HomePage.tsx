@@ -9,7 +9,6 @@ interface Counts {
   collaborators: number;
   posts: number;
   places: number;
-  events: number;
   connections: number;
   tags: number;
   themes: number;
@@ -19,19 +18,18 @@ interface Counts {
 
 async function loadCounts(): Promise<Counts> {
   const db = await getDB();
-  const [collaborators, posts, places, events, connections, tags, themes, fieldNotes, images] =
+  const [collaborators, posts, places, connections, tags, themes, fieldNotes, images] =
     await Promise.all([
       db.count('collaborators'),
       db.count('posts'),
       db.count('places'),
-      db.count('events'),
       db.count('connections'),
       db.count('tags'),
       db.count('themes'),
       db.count('fieldNotes'),
       db.count('images'),
     ]);
-  return { collaborators, posts, places, events, connections, tags, themes, fieldNotes, images };
+  return { collaborators, posts, places, connections, tags, themes, fieldNotes, images };
 }
 
 export default function HomePage() {
@@ -152,7 +150,6 @@ export default function HomePage() {
           >
             <CountTile label="Collaborators" value={counts.collaborators} />
             <CountTile label="Posts" value={counts.posts} />
-            <CountTile label="Events" value={counts.events} />
             <CountTile label="Places" value={counts.places} />
             <CountTile label="Connections" value={counts.connections} />
             <CountTile label="Tags" value={counts.tags} />
@@ -168,7 +165,8 @@ export default function HomePage() {
       <section className="card">
         <h2>Demo data</h2>
         <p style={{ color: 'var(--color-text-muted)' }}>
-          A small set of clearly fake collaborators, a post, an event and a place, so you can try
+          A small set of clearly fake collaborators, a few posts (one a named gathering) and a
+          place, so you can try
           out every screen before entering real material. Everything is labeled{' '}
           <strong>[DEMO]</strong> and can be removed in one click, leaving your own data untouched.
         </p>

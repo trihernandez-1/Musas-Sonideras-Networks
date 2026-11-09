@@ -12,7 +12,7 @@ export interface AnalysisNode {
 export interface AnalysisEdge {
   a: string;
   b: string;
-  /** How many events this pair shares — not used in the core metrics (which treat the
+  /** How many records this pair shares — not used in the core metrics (which treat the
    * graph as simple/unweighted, per the chapter's own convention), shown only as extra detail. */
   weight: number;
 }
@@ -176,19 +176,19 @@ export function analyzeNetwork(graph: GraphInput): NetworkMetrics {
 }
 
 /**
- * Projects events onto a collaborator-collaborator graph: two collaborators are linked if
- * they shared at least one event, weighted by how many. This is the same kind of one-mode
+ * Projects records onto a collaborator-collaborator graph: two collaborators are linked if
+ * they shared at least one record, weighted by how many. This is the same kind of one-mode
  * projection as Barabási's Hollywood actor network (actors linked if they shared a movie) —
- * here collaborators linked if they shared an event. Pass one event or every event.
+ * here collaborators linked if they shared a record. Pass one post or every post.
  */
-export function buildEventCollaborationGraph(
-  events: Array<{ collaboratorIds: string[] }>,
+export function buildCollaborationGraph(
+  records: Array<{ collaboratorIds: string[] }>,
   collaboratorNameById: Map<string, string>,
 ): GraphInput {
   const nodeIds = new Set<string>();
   const edgeByKey = new Map<string, AnalysisEdge>();
-  for (const event of events) {
-    const ids = Array.from(new Set(event.collaboratorIds));
+  for (const record of records) {
+    const ids = Array.from(new Set(record.collaboratorIds));
     ids.forEach((id) => nodeIds.add(id));
     for (let i = 0; i < ids.length; i++) {
       for (let j = i + 1; j < ids.length; j++) {

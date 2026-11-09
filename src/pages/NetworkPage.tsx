@@ -21,7 +21,7 @@ import ManualConnectionForm from '../components/ManualConnectionForm';
 import TagChip from '../components/TagChip';
 import StoredImageView from '../components/StoredImageView';
 import PostHighlightPicker from '../components/PostHighlightPicker';
-import EventNetworkView from '../components/EventNetworkView';
+import PostNetworkView from '../components/PostNetworkView';
 import NetworkAnalysisView from '../components/NetworkAnalysisView';
 import { exportSvgAsPngFile, exportSvgAsSvgFile } from '../utils/exportSvg';
 
@@ -50,7 +50,7 @@ export default function NetworkPage() {
   const [draftConnection, setDraftConnection] = useState<{ aId: string; bId: string } | null>(null);
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'aggregate' | 'byEvent' | 'analysis'>('aggregate');
+  const [viewMode, setViewMode] = useState<'aggregate' | 'byPost' | 'analysis'>('aggregate');
 
   const load = useCallback(async () => {
     const [c, conn, p] = await Promise.all([getAllCollaborators(), getAllConnections(), getAllPosts()]);
@@ -250,8 +250,8 @@ export default function NetworkPage() {
           <button type="button" className={viewMode === 'aggregate' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('aggregate')}>
             Aggregate
           </button>
-          <button type="button" className={viewMode === 'byEvent' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('byEvent')}>
-            By event
+          <button type="button" className={viewMode === 'byPost' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('byPost')}>
+            By post
           </button>
           <button type="button" className={viewMode === 'analysis' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('analysis')}>
             Analysis
@@ -259,8 +259,8 @@ export default function NetworkPage() {
         </div>
       </div>
 
-      {viewMode === 'byEvent' ? (
-        <EventNetworkView />
+      {viewMode === 'byPost' ? (
+        <PostNetworkView />
       ) : viewMode === 'analysis' ? (
         <NetworkAnalysisView />
       ) : (
