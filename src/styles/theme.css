@@ -385,3 +385,16 @@ select {
   font-size: 0.8rem;
   box-shadow: 0 1px 4px rgba(20, 16, 17, 0.35);
 }
+
+.density-marker {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--color-primary);
+  color: var(--color-primary-contrast);
+  border: 2px solid var(--color-surface-raised);
+  font-weight: 700;
+  box-shadow: 0 1px 4px rgba(20, 16, 17, 0.35);
+  cursor: pointer;
+}

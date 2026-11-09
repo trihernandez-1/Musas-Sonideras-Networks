@@ -6,6 +6,8 @@ import { deletePlace, getAllCollaborators, getAllPlaces, getAllPosts, upsertPlac
 import { useTags } from '../hooks/useTags';
 import { usePostThemes } from '../hooks/usePostThemes';
 import ClusterLayer from '../components/ClusterLayer';
+import DensityLayer from '../components/DensityLayer';
+import HeatmapLayer from '../components/HeatmapLayer';
 import DateRangeSlider from '../components/DateRangeSlider';
 import PlacePanel from '../components/PlacePanel';
 import TagChip from '../components/TagChip';
@@ -40,6 +42,7 @@ export default function MapPage() {
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [dateRange, setDateRange] = useState<[string, string] | null>(null);
   const [showSharedLines, setShowSharedLines] = useState(false);
+  const [viewMode, setViewMode] = useState<'locations' | 'density' | 'heatmap'>('locations');
 
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
@@ -106,6 +109,32 @@ export default function MapPage() {
         return { id: `place:${placeId}`, lat: place.lat, lng: place.lng };
       }),
     [visiblePlaceIds, placeById],
+  );
+
+  // How many of the currently-visible records happened at each place — the shared basis for
+  // both the Density bubbles and the Heatmap glow, and for the count shown in the place list.
+  const placeCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const p of placedPosts) counts.set(p.placeId!, (counts.get(p.placeId!) ?? 0) + 1);
+    return counts;
+  }, [placedPosts]);
+
+  const densityItems = useMemo(
+    () =>
+      Array.from(visiblePlaceIds).map((placeId) => {
+        const place = placeById.get(placeId)!;
+        return { id: `place:${placeId}`, lat: place.lat, lng: place.lng, count: placeCounts.get(placeId) ?? 0 };
+      }),
+    [visiblePlaceIds, placeById, placeCounts],
+  );
+
+  const heatPoints = useMemo(
+    () =>
+      Array.from(visiblePlaceIds).map((placeId) => {
+        const place = placeById.get(placeId)!;
+        return { lat: place.lat, lng: place.lng, intensity: placeCounts.get(placeId) ?? 0 };
+      }),
+    [visiblePlaceIds, placeById, placeCounts],
   );
 
   // Lines between places that share a collaborator, among the currently-visible records.
@@ -195,12 +224,29 @@ export default function MapPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div className="card">
-        <h1>Map</h1>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
+          <h1 style={{ marginBottom: 0 }}>Map</h1>
+          <div style={{ display: 'flex', gap: '0.5rem' }}>
+            <button type="button" className={viewMode === 'locations' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('locations')}>
+              Locations
+            </button>
+            <button type="button" className={viewMode === 'density' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('density')}>
+              Density
+            </button>
+            <button type="button" className={viewMode === 'heatmap' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('heatmap')}>
+              Heatmap
+            </button>
+          </div>
+        </div>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-          Places with located records as pins, clustered when zoomed out — click one to see
-          that place's type and notes, then open any record held there. Click anywhere on the
-          map, or search an address, to save a new place — then pick it from the Inbox when
-          adding a record, or from the list below for an existing one.
+          {viewMode === 'locations' &&
+            "Places with located records as pins, clustered when zoomed out — click one to see that place's type and notes, then open any record held there."}
+          {viewMode === 'density' &&
+            'One bubble per place, sized and numbered by how many of the currently-filtered records happened there — bigger and darker means busier.'}
+          {viewMode === 'heatmap' &&
+            'A density glow weighted by how many records happened at each place — brighter spots are busier locations.'}
+          {' '}Click anywhere on the map, or search an address, to save a new place — then pick
+          it from the Inbox when adding a record, or from the list below for an existing one.
         </p>
 
         <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
@@ -267,7 +313,9 @@ export default function MapPage() {
               url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
             />
             <MapClickHandler onClick={handleMapClick} />
-            <ClusterLayer items={markerItems} onItemClick={handleMarkerClick} />
+            {viewMode === 'locations' && <ClusterLayer items={markerItems} onItemClick={handleMarkerClick} />}
+            {viewMode === 'density' && <DensityLayer items={densityItems} onItemClick={handleMarkerClick} />}
+            {viewMode === 'heatmap' && <HeatmapLayer points={heatPoints} />}
             {sharedLines.map((line) => (
               <Polyline
                 key={line.id}
@@ -324,7 +372,7 @@ export default function MapPage() {
 
               {selectedPlacePosts.length > 0 && (
                 <div style={{ marginTop: '0.75rem' }}>
-                  <FieldLabel>Records here</FieldLabel>
+                  <FieldLabel>Records here ({selectedPlacePosts.length})</FieldLabel>
                   <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
                     {selectedPlacePosts.map((post) =>
                       post.imageIds[0] ? (
@@ -398,24 +446,34 @@ export default function MapPage() {
                   </p>
                 )}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '340px', overflowY: 'auto' }}>
-                  {places.map((p) => (
-                    <div
-                      key={p.id}
-                      onClick={() => {
-                        setSelectedPlaceId(p.id);
-                        setSelectedPostId(null);
-                        setFlyTo([p.lat, p.lng]);
-                      }}
-                      style={{ fontSize: '0.85rem', cursor: 'pointer', padding: '0.3rem 0', borderBottom: '1px solid var(--color-border)' }}
-                    >
-                      <div style={{ fontWeight: 600 }}>{p.name}</div>
-                      <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
-                        {p.placeTypeTagIds.map((tid) => tagById.get(tid)).filter((t): t is NonNullable<typeof t> => Boolean(t)).map((tag) => (
-                          <TagChip key={tag.id} tag={tag} size="sm" />
-                        ))}
-                      </div>
-                    </div>
-                  ))}
+                  {[...places]
+                    .sort((a, b) => (placeCounts.get(b.id) ?? 0) - (placeCounts.get(a.id) ?? 0) || a.name.localeCompare(b.name, 'es'))
+                    .map((p) => {
+                      const count = placeCounts.get(p.id) ?? 0;
+                      return (
+                        <div
+                          key={p.id}
+                          onClick={() => {
+                            setSelectedPlaceId(p.id);
+                            setSelectedPostId(null);
+                            setFlyTo([p.lat, p.lng]);
+                          }}
+                          style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer', padding: '0.3rem 0', borderBottom: '1px solid var(--color-border)' }}
+                        >
+                          <div>
+                            <div style={{ fontWeight: 600 }}>{p.name}</div>
+                            <div style={{ display: 'flex', gap: '0.3rem', flexWrap: 'wrap', marginTop: '0.2rem' }}>
+                              {p.placeTypeTagIds.map((tid) => tagById.get(tid)).filter((t): t is NonNullable<typeof t> => Boolean(t)).map((tag) => (
+                                <TagChip key={tag.id} tag={tag} size="sm" />
+                              ))}
+                            </div>
+                          </div>
+                          {count > 0 && (
+                            <span style={{ flexShrink: 0, color: 'var(--color-text-muted)', fontVariantNumeric: 'tabular-nums' }}>{count}</span>
+                          )}
+                        </div>
+                      );
+                    })}
                 </div>
               </div>
             </>

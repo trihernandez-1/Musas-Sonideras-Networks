@@ -123,15 +123,23 @@ screenshot *of* a named occasion is a third post, on its own.
     plain-language explanations of each measure and a CSV export of the
     per-person numbers.
   Aggregate and By post both export as SVG or PNG.
-- **Map** — one pin per place (clustered when zoomed out), however many
-  posts it holds; every place records a venue type and notes, wherever it's
-  added from (the map itself or a post's location); clicking a pin — or a
-  place in the sidebar list — shows that description first, with every post
-  held there listed underneath (thumbnail if it has a screenshot, a chip if
-  not), before you ever reach the edit form. Add a place by clicking the map
-  or searching an address (OpenStreetMap Nominatim); the same tag/date
-  filters; an optional overlay of lines between places that share a
-  collaborator; prints to PDF.
+- **Map** — three view modes, switchable at the top:
+  - **Locations**: one pin per place (clustered when zoomed out), however
+    many posts it holds; every place records a venue type and notes,
+    wherever it's added from (the map itself or a post's location); clicking
+    a pin — or a place in the sidebar list — shows that description first,
+    with every post held there listed underneath (thumbnail if it has a
+    screenshot, a chip if not), before you ever reach the edit form.
+  - **Density**: a proportional-symbol bubble per place, sized by area (not
+    raw radius) and numbered, so a venue used ten times doesn't just look
+    "a bit bigger" than one used once — it's visually unmistakable.
+  - **Heatmap**: a density glow weighted by the same per-place counts, for a
+    more at-a-glance read of where activity concentrates.
+  Add a place by clicking the map or searching an address (OpenStreetMap
+  Nominatim); the same tag/date filters apply in every mode, and the
+  sidebar's place list is sorted busiest-first with its own count; an
+  optional overlay of lines between places that share a collaborator;
+  prints to PDF.
 - **Gallery** — every post as a wall, newest first, your interpretation
   underneath each one, filterable by tag, theme, collaborator, or place.
   Each card has a delete button, which also cleans up any tags, themes, or
