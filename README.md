@@ -5,6 +5,17 @@ network: collaborators, posts, places, and the connections between them.
 Everything is entered by hand and stored only in your browser (IndexedDB) —
 there is no server, no login, and no Instagram API involved.
 
+**Live version:** https://trihernandez-1.github.io/Musas-Sonideras-Networks/
+— this is the same app, hosted as a static site (it runs entirely in your
+browser, so no server ever sees your data). Because the repo is public,
+anyone with the link can open it, but they only ever see a blank, empty
+notebook: nothing you enter is stored in the repo or visible to anyone else.
+Your data lives only in *your own browser's* storage on whichever device you
+used — the laptop version and this hosted version are two separate browser
+origins with two separate, unconnected stores, same as any two browsers.
+Move data between them with **Export backup** / **Import backup**, same as
+moving between any two browsers or devices.
+
 ## Running it on your laptop (first time)
 
 You need [Node.js](https://nodejs.org) installed (the current "LTS" version is fine).
