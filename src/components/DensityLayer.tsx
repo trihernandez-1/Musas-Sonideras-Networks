@@ -9,8 +9,8 @@ export interface DensityMarkerDatum {
   count: number;
 }
 
-const MIN_RADIUS = 11;
-const MAX_RADIUS = 46;
+const BASE_MIN_RADIUS = 11;
+const BASE_MAX_RADIUS = 46;
 
 /** Proportional-symbol markers: one bubble per place, sized by area (not raw radius, so
  * doubling the count doesn't look like 4x the ink) relative to the busiest place currently
@@ -19,9 +19,13 @@ const MAX_RADIUS = 46;
 export default function DensityLayer({
   items,
   onItemClick,
+  scale = 1,
 }: {
   items: DensityMarkerDatum[];
   onItemClick: (id: string) => void;
+  /** Multiplies the min/max bubble radius, so the researcher can shrink an overlapping
+   * cluster of venues apart or enlarge a sparse map for a clearer print/screenshot. */
+  scale?: number;
 }) {
   const map = useMap();
   const onItemClickRef = useRef(onItemClick);
@@ -30,15 +34,17 @@ export default function DensityLayer({
   useEffect(() => {
     const layerGroup = L.layerGroup();
     const maxCount = items.reduce((m, i) => Math.max(m, i.count), 1);
+    const minRadius = BASE_MIN_RADIUS * scale;
+    const maxRadius = BASE_MAX_RADIUS * scale;
 
     // Largest-first, so a big bubble never visually buries a smaller one that happens to
     // render after it at a nearby point.
     const sorted = [...items].sort((a, b) => b.count - a.count);
 
     for (const item of sorted) {
-      const diameter = Math.round(2 * (MIN_RADIUS + (MAX_RADIUS - MIN_RADIUS) * Math.sqrt(item.count / maxCount)));
+      const diameter = Math.round(2 * (minRadius + (maxRadius - minRadius) * Math.sqrt(item.count / maxCount)));
       const opacity = (0.4 + 0.5 * (item.count / maxCount)).toFixed(2);
-      const fontSize = diameter < 28 ? 11 : diameter < 40 ? 13 : 15;
+      const fontSize = Math.round((diameter < 28 ? 11 : diameter < 40 ? 13 : 15) * Math.min(1.25, Math.max(0.75, scale)));
       const icon = L.divIcon({
         className: '',
         html: `<div class="density-marker" style="width:${diameter}px;height:${diameter}px;opacity:${opacity};font-size:${fontSize}px"><span>${item.count}</span></div>`,
@@ -53,7 +59,7 @@ export default function DensityLayer({
     return () => {
       map.removeLayer(layerGroup);
     };
-  }, [map, items]);
+  }, [map, items, scale]);
 
   return null;
 }

@@ -23,6 +23,10 @@ function postLabel(p: Post): string {
   return p.name || p.postDate;
 }
 
+const DENSITY_SCALE_MIN = 0.5;
+const DENSITY_SCALE_MAX = 2;
+const DENSITY_SCALE_STEP = 0.25;
+
 function MapClickHandler({ onClick }: { onClick: (lat: number, lng: number) => void }) {
   useMapEvents({
     click(e) {
@@ -43,6 +47,7 @@ export default function MapPage() {
   const [dateRange, setDateRange] = useState<[string, string] | null>(null);
   const [showSharedLines, setShowSharedLines] = useState(false);
   const [viewMode, setViewMode] = useState<'locations' | 'density' | 'heatmap'>('locations');
+  const [densityScale, setDensityScale] = useState(1);
 
   const [selectedPostId, setSelectedPostId] = useState<string | null>(null);
   const [selectedPlaceId, setSelectedPlaceId] = useState<string | null>(null);
@@ -237,6 +242,36 @@ export default function MapPage() {
               Heatmap
             </button>
           </div>
+          {viewMode === 'density' && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <FieldLabel>Bubble size</FieldLabel>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  style={{ padding: '0.2em 0.7em' }}
+                  disabled={densityScale <= DENSITY_SCALE_MIN}
+                  onClick={() => setDensityScale((s) => Math.max(DENSITY_SCALE_MIN, Math.round((s - DENSITY_SCALE_STEP) * 100) / 100))}
+                  aria-label="Shrink bubbles"
+                >
+                  −
+                </button>
+                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', minWidth: '3.2em', textAlign: 'center' }}>
+                  {Math.round(densityScale * 100)}%
+                </span>
+                <button
+                  type="button"
+                  className="btn ghost"
+                  style={{ padding: '0.2em 0.7em' }}
+                  disabled={densityScale >= DENSITY_SCALE_MAX}
+                  onClick={() => setDensityScale((s) => Math.min(DENSITY_SCALE_MAX, Math.round((s + DENSITY_SCALE_STEP) * 100) / 100))}
+                  aria-label="Enlarge bubbles"
+                >
+                  +
+                </button>
+              </div>
+            </div>
+          )}
         </div>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
           {viewMode === 'locations' &&
@@ -314,7 +349,7 @@ export default function MapPage() {
             />
             <MapClickHandler onClick={handleMapClick} />
             {viewMode === 'locations' && <ClusterLayer items={markerItems} onItemClick={handleMarkerClick} />}
-            {viewMode === 'density' && <DensityLayer items={densityItems} onItemClick={handleMarkerClick} />}
+            {viewMode === 'density' && <DensityLayer items={densityItems} onItemClick={handleMarkerClick} scale={densityScale} />}
             {viewMode === 'heatmap' && <HeatmapLayer points={heatPoints} />}
             {sharedLines.map((line) => (
               <Polyline
