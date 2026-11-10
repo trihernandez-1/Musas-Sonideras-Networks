@@ -229,50 +229,7 @@ export default function MapPage() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', marginBottom: '0.5rem' }}>
-          <h1 style={{ marginBottom: 0 }}>Map</h1>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
-            <button type="button" className={viewMode === 'locations' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('locations')}>
-              Locations
-            </button>
-            <button type="button" className={viewMode === 'density' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('density')}>
-              Density
-            </button>
-            <button type="button" className={viewMode === 'heatmap' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('heatmap')}>
-              Heatmap
-            </button>
-          </div>
-          {viewMode === 'density' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-              <FieldLabel>Bubble size</FieldLabel>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  style={{ padding: '0.2em 0.7em' }}
-                  disabled={densityScale <= DENSITY_SCALE_MIN}
-                  onClick={() => setDensityScale((s) => Math.max(DENSITY_SCALE_MIN, Math.round((s - DENSITY_SCALE_STEP) * 100) / 100))}
-                  aria-label="Shrink bubbles"
-                >
-                  −
-                </button>
-                <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', minWidth: '3.2em', textAlign: 'center' }}>
-                  {Math.round(densityScale * 100)}%
-                </span>
-                <button
-                  type="button"
-                  className="btn ghost"
-                  style={{ padding: '0.2em 0.7em' }}
-                  disabled={densityScale >= DENSITY_SCALE_MAX}
-                  onClick={() => setDensityScale((s) => Math.min(DENSITY_SCALE_MAX, Math.round((s + DENSITY_SCALE_STEP) * 100) / 100))}
-                  aria-label="Enlarge bubbles"
-                >
-                  +
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <h1>Map</h1>
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
           {viewMode === 'locations' &&
             "Places with located records as pins, clustered when zoomed out — click one to see that place's type and notes, then open any record held there."}
@@ -341,7 +298,51 @@ export default function MapPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 360px', gap: '1.25rem' }}>
-        <div className="card print-target" style={{ padding: 0, height: '620px', overflow: 'hidden' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+          <div className="card no-print" style={{ display: 'flex', alignItems: 'center', gap: '1.5rem', flexWrap: 'wrap', padding: '0.75rem 1rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button type="button" className={viewMode === 'locations' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('locations')}>
+                Locations
+              </button>
+              <button type="button" className={viewMode === 'density' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('density')}>
+                Density
+              </button>
+              <button type="button" className={viewMode === 'heatmap' ? 'btn' : 'btn ghost'} onClick={() => setViewMode('heatmap')}>
+                Heatmap
+              </button>
+            </div>
+            {viewMode === 'density' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <FieldLabel>Bubble size</FieldLabel>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    style={{ padding: '0.2em 0.7em' }}
+                    disabled={densityScale <= DENSITY_SCALE_MIN}
+                    onClick={() => setDensityScale((s) => Math.max(DENSITY_SCALE_MIN, Math.round((s - DENSITY_SCALE_STEP) * 100) / 100))}
+                    aria-label="Shrink bubbles"
+                  >
+                    −
+                  </button>
+                  <span style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)', minWidth: '3.2em', textAlign: 'center' }}>
+                    {Math.round(densityScale * 100)}%
+                  </span>
+                  <button
+                    type="button"
+                    className="btn ghost"
+                    style={{ padding: '0.2em 0.7em' }}
+                    disabled={densityScale >= DENSITY_SCALE_MAX}
+                    onClick={() => setDensityScale((s) => Math.min(DENSITY_SCALE_MAX, Math.round((s + DENSITY_SCALE_STEP) * 100) / 100))}
+                    aria-label="Enlarge bubbles"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="card print-target" style={{ padding: 0, height: '620px', overflow: 'hidden' }}>
           <MapContainer center={MEXICO_CITY_CENTER} zoom={11} style={{ height: '100%', width: '100%' }}>
             <TileLayer
               attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
@@ -360,6 +361,7 @@ export default function MapPage() {
             ))}
             <FlyToController target={flyTo} />
           </MapContainer>
+          </div>
         </div>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
