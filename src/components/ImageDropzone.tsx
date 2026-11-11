@@ -13,6 +13,16 @@ export default function ImageDropzone({
   const inputRef = useRef<HTMLInputElement>(null);
   const [previews, setPreviews] = useState<string[]>([]);
 
+  // Read through refs (always current, updated every render) rather than the `files`/
+  // `onChange` closures directly: the paste listener below is registered once and lives
+  // across renders, so without this, two paste events arriving before React re-renders in
+  // between would both compute their new array from the same stale `files` snapshot and the
+  // second would silently overwrite the first's screenshot instead of appending to it.
+  const filesRef = useRef(files);
+  filesRef.current = files;
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+
   useEffect(() => {
     const urls = files.map((f) => URL.createObjectURL(f));
     setPreviews(urls);
@@ -31,21 +41,21 @@ export default function ImageDropzone({
         }
       }
       if (images.length > 0) {
-        onChange([...files, ...images]);
+        onChangeRef.current([...filesRef.current, ...images]);
       }
     }
     window.addEventListener('paste', handlePaste);
     return () => window.removeEventListener('paste', handlePaste);
-  }, [files, onChange]);
+  }, []);
 
   function addFiles(list: FileList | null) {
     if (!list) return;
     const images = Array.from(list).filter((f) => f.type.startsWith('image/'));
-    onChange([...files, ...images]);
+    onChangeRef.current([...filesRef.current, ...images]);
   }
 
   function removeAt(index: number) {
-    onChange(files.filter((_, i) => i !== index));
+    onChangeRef.current(filesRef.current.filter((_, i) => i !== index));
   }
 
   return (
@@ -102,6 +112,7 @@ export default function ImageDropzone({
                 }}
               />
               <button
+                type="button"
                 onClick={() => removeAt(i)}
                 aria-label="Remove screenshot"
                 className="btn danger"

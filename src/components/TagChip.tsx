@@ -33,6 +33,7 @@ export default function TagChip({
       {tag.label}
       {onRemove && (
         <button
+          type="button"
           onClick={onRemove}
           aria-label={`Remove tag ${tag.label}`}
           style={{

@@ -48,7 +48,7 @@ export default function EntityMultiSelect({
         {selected.map((o) => (
           <span key={o.id} className="chip" style={{ borderColor: 'var(--color-primary)', color: 'var(--color-primary)' }}>
             {o.label}
-            <button onClick={() => remove(o.id)} aria-label={`Remove ${o.label}`} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 600, padding: 0, lineHeight: 1 }}>
+            <button type="button" onClick={() => remove(o.id)} aria-label={`Remove ${o.label}`} style={{ background: 'transparent', border: 'none', color: 'inherit', cursor: 'pointer', fontWeight: 600, padding: 0, lineHeight: 1 }}>
               ×
             </button>
           </span>

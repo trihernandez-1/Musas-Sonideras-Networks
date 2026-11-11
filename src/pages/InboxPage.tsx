@@ -59,8 +59,7 @@ export default function InboxPage() {
     return c;
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function handleSubmit() {
     if (form.files.length === 0 && !form.name?.trim()) {
       setMessage('Add a screenshot or give it a name before saving — an empty record isn’t useful on its own.');
       return;
@@ -91,7 +90,7 @@ export default function InboxPage() {
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div className="card">
         <h1>Add a post</h1>
         <p style={{ color: 'var(--color-text-muted)' }}>
@@ -120,10 +119,10 @@ export default function InboxPage() {
       />
 
       <div>
-        <button type="submit" className="btn" disabled={saving}>
+        <button type="button" className="btn" onClick={handleSubmit} disabled={saving}>
           {saving ? 'Saving…' : 'Save'}
         </button>
       </div>
-    </form>
+    </div>
   );
 }

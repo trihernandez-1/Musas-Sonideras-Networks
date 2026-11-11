@@ -100,7 +100,7 @@ export default function PostForm({
       <div className="card" style={{ display: 'grid', gap: '1rem', gridTemplateColumns: '1fr 1fr 2fr' }}>
         <div>
           <Label>Date</Label>
-          <input type="date" required value={value.postDate} onChange={(e) => onChange({ postDate: e.target.value })} style={inputStyle} />
+          <input type="date" value={value.postDate} onChange={(e) => onChange({ postDate: e.target.value })} style={inputStyle} />
         </div>
         <div>
           <Label>End date (optional)</Label>

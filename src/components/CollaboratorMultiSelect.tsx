@@ -81,6 +81,7 @@ export default function CollaboratorMultiSelect({
           >
             {c.name}
             <button
+              type="button"
               onClick={() => removeCollaborator(c.id)}
               aria-label={`Remove ${c.name}`}
               style={{
