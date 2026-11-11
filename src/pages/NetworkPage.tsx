@@ -13,7 +13,7 @@ import {
 } from '../db/repos';
 import { useTags } from '../hooks/useTags';
 import { useTheme } from '../hooks/useTheme';
-import { hashColor, readCSSVar } from '../utils/colors';
+import { distinctColors, hashColor, readCSSVar } from '../utils/colors';
 import NetworkGraph from '../components/NetworkGraph';
 import type { GraphEdgeInput, GraphNodeInput } from '../components/NetworkGraph';
 import DateRangeSlider from '../components/DateRangeSlider';
@@ -149,6 +149,22 @@ export default function NetworkPage() {
 
   const visibleIds = useMemo(() => new Set(visibleCollaborators.map((c) => c.id)), [visibleCollaborators]);
 
+  // Assigned by position among the roles actually present, not by hashing each role's name —
+  // hashColor only has 10 buckets, so two unrelated role strings can land on the same one once
+  // there are more than a few roles. distinctColors() guarantees every role in the legend gets
+  // its own color.
+  const roleColorMap = useMemo(() => {
+    if (!colorByRole) return new Map<string, string>();
+    const roles = new Set<string>();
+    for (const c of visibleCollaborators) {
+      const role = roleByCollaborator.get(c.id);
+      if (role) roles.add(role);
+    }
+    const sorted = Array.from(roles).sort((a, b) => a.localeCompare(b, 'es'));
+    const colors = distinctColors(sorted.length);
+    return new Map(sorted.map((role, i) => [role, colors[i]]));
+  }, [colorByRole, visibleCollaborators, roleByCollaborator]);
+
   const graphNodes: GraphNodeInput[] = useMemo(() => {
     return visibleCollaborators.map((c) => {
       const postCount = postCountByCollaborator.get(c.id) ?? 0;
@@ -158,7 +174,7 @@ export default function NetworkPage() {
       let color = NEUTRAL_NODE_COLOR;
       if (colorByRole) {
         const role = roleByCollaborator.get(c.id);
-        if (role) color = hashColor(role.toLowerCase());
+        if (role) color = roleColorMap.get(role) ?? NEUTRAL_NODE_COLOR;
       } else if (colorByTagId) {
         const tag = tagById.get(colorByTagId);
         if (tag && c.tagIds.includes(colorByTagId)) color = tag.color ?? hashColor(tag.id);
@@ -175,17 +191,9 @@ export default function NetworkPage() {
         pinnedY: c.pinnedY,
       };
     });
-  }, [visibleCollaborators, postCountByCollaborator, colorByTagId, colorByRole, roleByCollaborator, tagById, theme]);
+  }, [visibleCollaborators, postCountByCollaborator, colorByTagId, colorByRole, roleByCollaborator, roleColorMap, tagById, theme]);
 
-  const roleLegend = useMemo(() => {
-    if (!colorByRole) return [];
-    const seen = new Map<string, string>();
-    for (const c of visibleCollaborators) {
-      const role = roleByCollaborator.get(c.id);
-      if (role && !seen.has(role)) seen.set(role, hashColor(role.toLowerCase()));
-    }
-    return Array.from(seen.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
-  }, [colorByRole, visibleCollaborators, roleByCollaborator]);
+  const roleLegend = useMemo(() => Array.from(roleColorMap.entries()), [roleColorMap]);
 
   const graphEdges: GraphEdgeInput[] = useMemo(() => {
     const result: GraphEdgeInput[] = [];

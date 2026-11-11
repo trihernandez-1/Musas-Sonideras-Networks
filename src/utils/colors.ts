@@ -14,13 +14,38 @@ export const TAG_PALETTE = [
   '#555a3c', // moss
 ];
 
-/** Deterministic fallback color for a tag that has no explicit color, based on its id. */
+/** Deterministic fallback color for a tag that has no explicit color, based on its id. Only
+ * guaranteed distinct up to TAG_PALETTE.length seeds — past that, two different seeds can hash
+ * to the same bucket. For a legend where every entry must be a different color, use
+ * distinctColors() instead, which assigns by position rather than by hash. */
 export function hashColor(seed: string): string {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) {
     hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
   }
   return TAG_PALETTE[hash % TAG_PALETTE.length];
+}
+
+/** `count` visually distinct colors, guaranteed never to repeat. Uses the curated TAG_PALETTE
+ * for the first 10 entries, then fills in further hues spaced evenly around the color wheel —
+ * so a role or tag legend with more entries than the palette still never assigns the same color
+ * to two different entries. */
+export function distinctColors(count: number): string[] {
+  const colors = TAG_PALETTE.slice(0, count);
+  for (let i = colors.length; i < count; i++) {
+    colors.push(hslToHex((i * 360) / count, 38, 40));
+  }
+  return colors;
+}
+
+function hslToHex(h: number, s: number, l: number): string {
+  const sat = s / 100;
+  const light = l / 100;
+  const k = (n: number) => (n + h / 30) % 12;
+  const a = sat * Math.min(light, 1 - light);
+  const f = (n: number) => light - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  const toHex = (x: number) => Math.round(x * 255).toString(16).padStart(2, '0');
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
 }
 
 /** Reads a CSS custom property's current resolved value (e.g. for use as an SVG fill,
