@@ -65,6 +65,7 @@ export default function NetworkGraph({
   onBackgroundClick,
   onNodeDragEnd,
   onConnectionDrawn,
+  onNodeHover,
   svgRef: externalSvgRef,
   highlightedNodeIds,
 }: {
@@ -78,6 +79,9 @@ export default function NetworkGraph({
   onBackgroundClick: () => void;
   onNodeDragEnd: (id: string, x: number, y: number) => void;
   onConnectionDrawn: (sourceId: string, targetId: string) => void;
+  /** Optional: lets the parent show a tooltip at the cursor while hovering a node. Called
+   * with null when the pointer leaves it. */
+  onNodeHover?: (id: string | null, clientX?: number, clientY?: number) => void;
   /** Optional: lets the parent page read the live SVG element (e.g. for PNG/SVG export). */
   svgRef?: React.RefObject<SVGSVGElement | null>;
   /** When set (non-empty), spotlights these nodes and the edges between them — everything
@@ -93,14 +97,14 @@ export default function NetworkGraph({
   const simRef = useRef<Simulation<SimNode, SimLink> | null>(null);
   const connectModeRef = useRef(connectMode);
   const draftLineRef = useRef<SVGLineElement | null>(null);
-  const callbacksRef = useRef({ onNodeClick, onEdgeClick, onBackgroundClick, onNodeDragEnd, onConnectionDrawn });
+  const callbacksRef = useRef({ onNodeClick, onEdgeClick, onBackgroundClick, onNodeDragEnd, onConnectionDrawn, onNodeHover });
 
   useEffect(() => {
     connectModeRef.current = connectMode;
   }, [connectMode]);
 
   useEffect(() => {
-    callbacksRef.current = { onNodeClick, onEdgeClick, onBackgroundClick, onNodeDragEnd, onConnectionDrawn };
+    callbacksRef.current = { onNodeClick, onEdgeClick, onBackgroundClick, onNodeDragEnd, onConnectionDrawn, onNodeHover };
   });
 
   useEffect(() => {
@@ -205,6 +209,17 @@ export default function NetworkGraph({
       if (!connectModeRef.current) callbacksRef.current.onNodeClick(d.id);
     });
 
+    nodeSel
+      .on('mouseenter', (event, d) => {
+        callbacksRef.current.onNodeHover?.(d.id, event.clientX, event.clientY);
+      })
+      .on('mousemove', (event, d) => {
+        callbacksRef.current.onNodeHover?.(d.id, event.clientX, event.clientY);
+      })
+      .on('mouseleave', () => {
+        callbacksRef.current.onNodeHover?.(null);
+      });
+
     svg.on('click', () => callbacksRef.current.onBackgroundClick());
 
     // One drag behavior handling both modes — two separate `drag()` instances bound via
@@ -283,6 +298,7 @@ export default function NetworkGraph({
 
     return () => {
       simulation.stop();
+      callbacksRef.current.onNodeHover?.(null);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [nodes, edges, connectMode, theme]);

@@ -52,6 +52,7 @@ export default function NetworkPage() {
   const [editingConnection, setEditingConnection] = useState<Connection | null>(null);
   const [highlightPostId, setHighlightPostId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'aggregate' | 'byPost' | 'analysis'>('aggregate');
+  const [hoveredNode, setHoveredNode] = useState<{ id: string; x: number; y: number } | null>(null);
 
   const load = useCallback(async () => {
     const [c, conn, p] = await Promise.all([getAllCollaborators(), getAllConnections(), getAllPosts()]);
@@ -76,7 +77,7 @@ export default function NetworkPage() {
 
   // dateRange stays null (tracking the full, ever-updating post date span) until the
   // researcher actually drags the slider or picks a preset, at which point it's fixed.
-  const effectiveRange = dateRange ?? [minDate, maxDate];
+  const effectiveRange = useMemo<[string, string]>(() => dateRange ?? [minDate, maxDate], [dateRange, minDate, maxDate]);
 
   const tagById = useMemo(() => new Map(tags.map((t) => [t.id, t])), [tags]);
 
@@ -364,19 +365,6 @@ export default function NetworkPage() {
                 ))}
               </optgroup>
             </select>
-            {roleLegend.length > 0 && (
-              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem', maxWidth: '320px' }}>
-                {roleLegend.map(([role, color]) => (
-                  <span key={role} className="chip" style={{ fontSize: '0.78rem' }}>
-                    <span
-                      aria-hidden
-                      style={{ width: '7px', height: '7px', borderRadius: '50%', background: color, display: 'inline-block', marginRight: '0.4em' }}
-                    />
-                    {role}
-                  </span>
-                ))}
-              </div>
-            )}
           </div>
 
           <div>
@@ -437,7 +425,7 @@ export default function NetworkPage() {
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: selectedNode || selectedConnection ? '1fr 340px' : '1fr', gap: '1.25rem' }}>
-        <div className="card" style={{ padding: 0, height: '620px', overflow: 'hidden' }} id="network-graph-card">
+        <div className="card" style={{ padding: 0, height: '620px', overflow: 'hidden', position: 'relative' }} id="network-graph-card">
           {graphNodes.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: 'var(--color-text-muted)' }}>
               No collaborators match the current filters.
@@ -464,7 +452,50 @@ export default function NetworkPage() {
               }}
               onNodeDragEnd={handleNodeDragEnd}
               onConnectionDrawn={handleConnectionDrawn}
+              onNodeHover={(id, x, y) => setHoveredNode(id ? { id, x: x ?? 0, y: y ?? 0 } : null)}
               highlightedNodeIds={highlightedCollaboratorIds}
+            />
+          )}
+
+          {roleLegend.length > 0 && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '0.75rem',
+                right: '0.75rem',
+                background: 'var(--color-surface-raised)',
+                border: '1px solid var(--color-border)',
+                borderRadius: 'var(--radius-md)',
+                padding: '0.65rem 0.8rem',
+                maxHeight: '85%',
+                overflowY: 'auto',
+                maxWidth: '220px',
+                boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)',
+              }}
+            >
+              <div style={{ fontSize: '0.72rem', letterSpacing: '0.05em', textTransform: 'uppercase', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+                Role legend
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.4rem' }}>
+                {roleLegend.map(([role, color]) => (
+                  <div key={role} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem' }}>
+                    <span aria-hidden style={{ width: '12px', height: '12px', borderRadius: '50%', background: color, flexShrink: 0 }} />
+                    {role}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hoveredNode && (
+            <NodeTooltip
+              x={hoveredNode.x}
+              y={hoveredNode.y}
+              collaborator={collaboratorById.get(hoveredNode.id)}
+              postCount={postCountByCollaborator.get(hoveredNode.id) ?? 0}
+              role={colorByRole ? roleByCollaborator.get(hoveredNode.id) : undefined}
+              tag={colorByTagId ? tagById.get(colorByTagId) : undefined}
+              tags={tagById}
             />
           )}
         </div>
@@ -563,6 +594,67 @@ export default function NetworkPage() {
       )}
         </>
       )}
+    </div>
+  );
+}
+
+/** Tooltip shown at the cursor while hovering a node — follows the pointer via fixed
+ * positioning, so it isn't clipped by the graph card's `overflow: hidden`. Flips to the
+ * other side of the cursor near the viewport edges so it never runs off-screen. */
+function NodeTooltip({
+  x,
+  y,
+  collaborator,
+  postCount,
+  role,
+  tag,
+  tags,
+}: {
+  x: number;
+  y: number;
+  collaborator?: Collaborator;
+  postCount: number;
+  role?: string;
+  tag?: Tag;
+  tags: Map<string, Tag>;
+}) {
+  if (!collaborator) return null;
+  const flipX = x > window.innerWidth - 240;
+  const flipY = y > window.innerHeight - 160;
+  const matchesTag = tag ? collaborator.tagIds.includes(tag.id) : false;
+  const otherTags = collaborator.tagIds.map((tid) => tags.get(tid)).filter((t): t is Tag => Boolean(t));
+
+  return (
+    <div
+      style={{
+        position: 'fixed',
+        left: flipX ? undefined : x + 14,
+        right: flipX ? window.innerWidth - x + 14 : undefined,
+        top: flipY ? undefined : y + 14,
+        bottom: flipY ? window.innerHeight - y + 14 : undefined,
+        background: 'var(--color-surface-raised)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 'var(--radius-md)',
+        padding: '0.55rem 0.7rem',
+        fontSize: '0.83rem',
+        boxShadow: '0 2px 12px rgba(0, 0, 0, 0.2)',
+        pointerEvents: 'none',
+        zIndex: 50,
+        maxWidth: '220px',
+      }}
+    >
+      <div style={{ fontWeight: 600 }}>{collaborator.name}</div>
+      {collaborator.instagramHandle && (
+        <div style={{ color: 'var(--color-accent-2)' }}>@{collaborator.instagramHandle}</div>
+      )}
+      {role && <div style={{ color: 'var(--color-text-muted)' }}>Role: {role}</div>}
+      {tag && <div style={{ color: 'var(--color-text-muted)' }}>{matchesTag ? `Tagged: ${tag.label}` : `Not tagged: ${tag.label}`}</div>}
+      {!role && !tag && otherTags.length > 0 && (
+        <div style={{ color: 'var(--color-text-muted)' }}>{otherTags.map((t) => t.label).join(', ')}</div>
+      )}
+      <div style={{ color: 'var(--color-text-muted)' }}>
+        {postCount} post{postCount === 1 ? '' : 's'} in range
+      </div>
     </div>
   );
 }
