@@ -43,6 +43,7 @@ export default function NetworkPage() {
 
   const [tagFilterIds, setTagFilterIds] = useState<string[]>([]);
   const [colorByTagId, setColorByTagId] = useState<string>('');
+  const [colorByRole, setColorByRole] = useState(false);
   const [dateRange, setDateRange] = useState<[string, string] | null>(null);
   const [connectMode, setConnectMode] = useState(false);
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
@@ -102,6 +103,38 @@ export default function NetworkPage() {
     return map;
   }, [postsInRange]);
 
+  // A collaborator can be given a different role on each post (a "DJ" here, a "Venue"
+  // there), so there's no single role to read off directly the way there is in the By-post
+  // view. Across every post currently in range, use whichever role was given to them most
+  // often — the role they usually play in this network, not necessarily every one they've
+  // ever had.
+  const roleByCollaborator = useMemo(() => {
+    const counts = new Map<string, Map<string, number>>();
+    for (const post of postsInRange) {
+      for (const cid of post.collaboratorIds) {
+        const role = post.collaboratorRoles?.[cid]?.trim();
+        if (!role) continue;
+        const perCollaborator = counts.get(cid) ?? new Map<string, number>();
+        perCollaborator.set(role, (perCollaborator.get(role) ?? 0) + 1);
+        counts.set(cid, perCollaborator);
+      }
+    }
+    const result = new Map<string, string>();
+    for (const [cid, roleCounts] of counts) {
+      const ranked = Array.from(roleCounts.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+      let best: string | null = null;
+      let bestCount = 0;
+      for (const [role, count] of ranked) {
+        if (count > bestCount) {
+          best = role;
+          bestCount = count;
+        }
+      }
+      if (best) result.set(cid, best);
+    }
+    return result;
+  }, [postsInRange]);
+
   const visibleCollaborators = useMemo(() => {
     return collaborators.filter((c) => {
       if (c.isCentral) return true;
@@ -122,7 +155,10 @@ export default function NetworkPage() {
         ? Math.max(MIN_RADIUS + 14, MIN_RADIUS + Math.sqrt(postCount) * 9)
         : Math.min(MAX_RADIUS, MIN_RADIUS + Math.sqrt(postCount) * 9);
       let color = NEUTRAL_NODE_COLOR;
-      if (colorByTagId) {
+      if (colorByRole) {
+        const role = roleByCollaborator.get(c.id);
+        if (role) color = hashColor(role.toLowerCase());
+      } else if (colorByTagId) {
         const tag = tagById.get(colorByTagId);
         if (tag && c.tagIds.includes(colorByTagId)) color = tag.color ?? hashColor(tag.id);
       } else if (c.isCentral) {
@@ -138,7 +174,17 @@ export default function NetworkPage() {
         pinnedY: c.pinnedY,
       };
     });
-  }, [visibleCollaborators, postCountByCollaborator, colorByTagId, tagById, theme]);
+  }, [visibleCollaborators, postCountByCollaborator, colorByTagId, colorByRole, roleByCollaborator, tagById, theme]);
+
+  const roleLegend = useMemo(() => {
+    if (!colorByRole) return [];
+    const seen = new Map<string, string>();
+    for (const c of visibleCollaborators) {
+      const role = roleByCollaborator.get(c.id);
+      if (role && !seen.has(role)) seen.set(role, hashColor(role.toLowerCase()));
+    }
+    return Array.from(seen.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
+  }, [colorByRole, visibleCollaborators, roleByCollaborator]);
 
   const graphEdges: GraphEdgeInput[] = useMemo(() => {
     const result: GraphEdgeInput[] = [];
@@ -290,19 +336,47 @@ export default function NetworkPage() {
           </div>
 
           <div>
-            <FieldLabel>Color by tag</FieldLabel>
+            <FieldLabel>Color by</FieldLabel>
             <select
-              value={colorByTagId}
-              onChange={(e) => setColorByTagId(e.target.value)}
+              value={colorByRole ? 'role' : colorByTagId || 'none'}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === 'role') {
+                  setColorByRole(true);
+                  setColorByTagId('');
+                } else if (v === 'none') {
+                  setColorByRole(false);
+                  setColorByTagId('');
+                } else {
+                  setColorByRole(false);
+                  setColorByTagId(v);
+                }
+              }}
               style={selectStyle}
             >
-              <option value="">None (neutral)</option>
-              {tags.map((tag) => (
-                <option key={tag.id} value={tag.id}>
-                  {tag.label}
-                </option>
-              ))}
+              <option value="none">None (neutral)</option>
+              <option value="role">Role (most common per person)</option>
+              <optgroup label="Tag">
+                {tags.map((tag) => (
+                  <option key={tag.id} value={tag.id}>
+                    {tag.label}
+                  </option>
+                ))}
+              </optgroup>
             </select>
+            {roleLegend.length > 0 && (
+              <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.5rem', maxWidth: '320px' }}>
+                {roleLegend.map(([role, color]) => (
+                  <span key={role} className="chip" style={{ fontSize: '0.78rem' }}>
+                    <span
+                      aria-hidden
+                      style={{ width: '7px', height: '7px', borderRadius: '50%', background: color, display: 'inline-block', marginRight: '0.4em' }}
+                    />
+                    {role}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
 
           <div>

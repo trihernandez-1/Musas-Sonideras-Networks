@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Collaborator, Place } from '../types/models';
-import { getAllCollaborators, getAllPlaces, quickCreateCollaborator, saveImage, upsertPost } from '../db/repos';
+import { getAllCollaborators, getAllKnownRoles, getAllPlaces, quickCreateCollaborator, saveImage, upsertPost } from '../db/repos';
 import { useTags } from '../hooks/useTags';
 import { usePostThemes } from '../hooks/usePostThemes';
 import PostForm from '../components/PostForm';
@@ -30,6 +30,7 @@ function emptyForm(): PostFormValue {
 export default function InboxPage() {
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
   const [places, setPlaces] = useState<Place[]>([]);
+  const [knownRoles, setKnownRoles] = useState<string[]>([]);
   const { tags, createTag } = useTags();
   const { themes, createTheme } = usePostThemes();
   const [form, setForm] = useState<PostFormValue>(emptyForm);
@@ -48,10 +49,15 @@ export default function InboxPage() {
     setPlaces(all);
   }, []);
 
+  const refreshKnownRoles = useCallback(async () => {
+    setKnownRoles(await getAllKnownRoles());
+  }, []);
+
   useEffect(() => {
     refreshCollaborators();
     refreshPlaces();
-  }, [refreshCollaborators, refreshPlaces]);
+    refreshKnownRoles();
+  }, [refreshCollaborators, refreshPlaces, refreshKnownRoles]);
 
   async function handleCreateCollaborator(handle: string) {
     const c = await quickCreateCollaborator(handle);
@@ -84,6 +90,7 @@ export default function InboxPage() {
       });
       setMessage('Saved. Add another?');
       setForm({ ...emptyForm(), postDate: form.postDate });
+      await refreshKnownRoles();
     } finally {
       setSaving(false);
     }
@@ -116,6 +123,7 @@ export default function InboxPage() {
         onCreateTag={createTag}
         themes={themes}
         onCreateTheme={createTheme}
+        knownRoles={knownRoles}
       />
 
       <div>

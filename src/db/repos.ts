@@ -190,6 +190,22 @@ export async function getPost(id: string): Promise<Post | undefined> {
   return db.get('posts', id);
 }
 
+/** Every distinct, non-empty role string ever given to a collaborator on any post — not a
+ * separate entity with its own store (a role is still just free text on the post), just a
+ * quick-pick list so the same spelling gets reused instead of drifting ("DJ" vs "Dj"). */
+export async function getAllKnownRoles(): Promise<string[]> {
+  const db = await getDB();
+  const posts = await db.getAll('posts');
+  const roles = new Set<string>();
+  for (const post of posts) {
+    for (const role of Object.values(post.collaboratorRoles ?? {})) {
+      const trimmed = role.trim();
+      if (trimmed) roles.add(trimmed);
+    }
+  }
+  return Array.from(roles).sort((a, b) => a.localeCompare(b, 'es'));
+}
+
 export async function upsertPost(
   p: Omit<Post, 'id' | 'createdAt' | 'updatedAt'> & Partial<Pick<Post, 'id' | 'createdAt'>>,
 ): Promise<Post> {

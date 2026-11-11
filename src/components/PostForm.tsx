@@ -4,6 +4,7 @@ import StoredImageView from './StoredImageView';
 import CollaboratorMultiSelect from './CollaboratorMultiSelect';
 import TagMultiSelect from './TagMultiSelect';
 import PlacePicker from './PlacePicker';
+import RolePicker from './RolePicker';
 import RichTextEditor from './RichTextEditor';
 
 export type PostFormValue = Pick<
@@ -37,6 +38,7 @@ export default function PostForm({
   onCreateTheme,
   existingImageIds,
   onRemoveExistingImage,
+  knownRoles,
 }: {
   value: PostFormValue;
   onChange: (patch: Partial<PostFormValue>) => void;
@@ -52,6 +54,8 @@ export default function PostForm({
    * from `value.files`, which are new, not-yet-uploaded screenshots. */
   existingImageIds?: string[];
   onRemoveExistingImage?: (imageId: string) => void;
+  /** Every role string ever used on any post, for the role field's quick-pick dropdown. */
+  knownRoles: string[];
 }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
@@ -140,11 +144,10 @@ export default function PostForm({
             {value.collaboratorIds.map((cid) => (
               <div key={cid} style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '0.5rem', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.9rem' }}>{collaborators.find((c) => c.id === cid)?.name ?? 'Unknown'}</span>
-                <input
+                <RolePicker
                   value={value.collaboratorRoles?.[cid] ?? ''}
-                  onChange={(e) => onChange({ collaboratorRoles: { ...value.collaboratorRoles, [cid]: e.target.value } })}
-                  placeholder="Role, e.g. DJ, Venue, Designer…"
-                  style={{ ...inputStyle, padding: '0.35rem 0.6rem' }}
+                  onChange={(role) => onChange({ collaboratorRoles: { ...value.collaboratorRoles, [cid]: role } })}
+                  knownRoles={knownRoles}
                 />
               </div>
             ))}

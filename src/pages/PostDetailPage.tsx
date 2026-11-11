@@ -5,6 +5,7 @@ import {
   deleteImage,
   deletePost,
   getAllCollaborators,
+  getAllKnownRoles,
   getAllPlaces,
   getPost,
   quickCreateCollaborator,
@@ -46,6 +47,7 @@ export default function PostDetailPage() {
   const [post, setPost] = useState<Post | null>(null);
   const [places, setPlaces] = useState<Place[]>([]);
   const [collaborators, setCollaborators] = useState<Collaborator[]>([]);
+  const [knownRoles, setKnownRoles] = useState<string[]>([]);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState<PostFormValue | null>(null);
   const [existingImageIds, setExistingImageIds] = useState<string[]>([]);
@@ -54,7 +56,12 @@ export default function PostDetailPage() {
 
   const load = useCallback(async () => {
     if (!id) return;
-    const [p, allPlaces, allCollaborators] = await Promise.all([getPost(id), getAllPlaces(), getAllCollaborators()]);
+    const [p, allPlaces, allCollaborators, allRoles] = await Promise.all([
+      getPost(id),
+      getAllPlaces(),
+      getAllCollaborators(),
+      getAllKnownRoles(),
+    ]);
     setPost(p ?? null);
     if (p) {
       setDraft(draftFromPost(p));
@@ -63,6 +70,7 @@ export default function PostDetailPage() {
     }
     setPlaces(allPlaces);
     setCollaborators(allCollaborators);
+    setKnownRoles(allRoles);
   }, [id]);
 
   useEffect(() => {
@@ -147,6 +155,7 @@ export default function PostDetailPage() {
                 setExistingImageIds((prev) => prev.filter((id) => id !== imgId));
                 setRemovedImageIds((prev) => [...prev, imgId]);
               }}
+              knownRoles={knownRoles}
             />
             <div style={{ display: 'flex', gap: '0.5rem' }}>
               <button className="btn" onClick={handleSave} disabled={saving}>
