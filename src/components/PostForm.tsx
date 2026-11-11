@@ -4,7 +4,8 @@ import StoredImageView from './StoredImageView';
 import CollaboratorMultiSelect from './CollaboratorMultiSelect';
 import TagMultiSelect from './TagMultiSelect';
 import PlacePicker from './PlacePicker';
-import RolePicker from './RolePicker';
+import RoleMultiPicker from './RoleMultiPicker';
+import { rolesForCollaborator } from '../utils/roles';
 import RichTextEditor from './RichTextEditor';
 
 export type PostFormValue = Pick<
@@ -140,13 +141,17 @@ export default function PostForm({
       {value.collaboratorIds.length > 0 && (
         <div className="card">
           <Label>Who did what (optional)</Label>
+          <p style={{ color: 'var(--color-text-muted)', fontSize: '0.85rem', marginTop: 0, marginBottom: '0.6rem' }}>
+            A person can have more than one role here (a DJ who also designed the flyer) — the
+            first one added is treated as their main role wherever only one can be shown.
+          </p>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
             {value.collaboratorIds.map((cid) => (
-              <div key={cid} style={{ display: 'grid', gridTemplateColumns: '1fr 1.5fr', gap: '0.5rem', alignItems: 'center' }}>
+              <div key={cid} style={{ display: 'grid', gridTemplateColumns: '1fr 2fr', gap: '0.5rem', alignItems: 'center' }}>
                 <span style={{ fontSize: '0.9rem' }}>{collaborators.find((c) => c.id === cid)?.name ?? 'Unknown'}</span>
-                <RolePicker
-                  value={value.collaboratorRoles?.[cid] ?? ''}
-                  onChange={(role) => onChange({ collaboratorRoles: { ...value.collaboratorRoles, [cid]: role } })}
+                <RoleMultiPicker
+                  values={rolesForCollaborator(value, cid)}
+                  onChange={(roles) => onChange({ collaboratorRoles: { ...value.collaboratorRoles, [cid]: roles } })}
                   knownRoles={knownRoles}
                 />
               </div>

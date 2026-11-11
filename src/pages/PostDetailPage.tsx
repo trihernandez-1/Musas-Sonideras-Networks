@@ -20,6 +20,7 @@ import MiniMap from '../components/MiniMap';
 import PostForm from '../components/PostForm';
 import type { PostFormValue } from '../components/PostForm';
 import { describeCleanup } from '../utils/describeCleanup';
+import { rolesForCollaborator } from '../utils/roles';
 
 function draftFromPost(post: Post): PostFormValue {
   return {
@@ -210,11 +211,11 @@ export default function PostDetailPage() {
                 <FieldLabel>Collaborators</FieldLabel>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem 1.25rem' }}>
                   {post.collaboratorIds.map((cid) => {
-                    const role = post.collaboratorRoles?.[cid];
+                    const roles = rolesForCollaborator(post, cid);
                     return (
                       <span key={cid}>
                         <Link to={`/collaborators/${cid}`}>{collaboratorById.get(cid)?.name ?? 'Unknown'}</Link>
-                        {role && <span style={{ color: 'var(--color-text-muted)' }}> — {role}</span>}
+                        {roles.length > 0 && <span style={{ color: 'var(--color-text-muted)' }}> — {roles.join(', ')}</span>}
                       </span>
                     );
                   })}

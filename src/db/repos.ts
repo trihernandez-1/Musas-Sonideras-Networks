@@ -9,6 +9,7 @@ import type {
   Tag,
   Theme,
 } from '../types/models';
+import { rolesForCollaborator } from '../utils/roles';
 
 // ---------- Tags ----------
 
@@ -198,9 +199,8 @@ export async function getAllKnownRoles(): Promise<string[]> {
   const posts = await db.getAll('posts');
   const roles = new Set<string>();
   for (const post of posts) {
-    for (const role of Object.values(post.collaboratorRoles ?? {})) {
-      const trimmed = role.trim();
-      if (trimmed) roles.add(trimmed);
+    for (const cid of Object.keys(post.collaboratorRoles ?? {})) {
+      for (const role of rolesForCollaborator(post, cid)) roles.add(role);
     }
   }
   return Array.from(roles).sort((a, b) => a.localeCompare(b, 'es'));

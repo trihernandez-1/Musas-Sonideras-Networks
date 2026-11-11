@@ -7,6 +7,7 @@ import type { GraphEdgeInput, GraphNodeInput } from './NetworkGraph';
 import PostNetworkPicker from './PostNetworkPicker';
 import { hashColor, readCSSVar } from '../utils/colors';
 import { exportSvgAsPngFile, exportSvgAsSvgFile } from '../utils/exportSvg';
+import { formatRoles, primaryRole } from '../utils/roles';
 
 const POST_NODE_ID = '__post__';
 const NEUTRAL_COLOR = '#9b9490';
@@ -52,7 +53,7 @@ export default function PostNetworkView() {
       id: cid,
       name: collaboratorById.get(cid)?.name ?? 'Unknown',
       radius: 18,
-      color: roleColor(post.collaboratorRoles?.[cid]),
+      color: roleColor(primaryRole(post, cid)),
       isCentral: false,
     }));
     return [postNode, ...participantNodes];
@@ -73,14 +74,14 @@ export default function PostNetworkView() {
     if (!post) return [];
     const seen = new Map<string, string>();
     post.collaboratorIds.forEach((cid) => {
-      const role = post.collaboratorRoles?.[cid];
-      if (role && role.trim() && !seen.has(role)) seen.set(role, roleColor(role));
+      const role = primaryRole(post, cid);
+      if (role && !seen.has(role)) seen.set(role, roleColor(role));
     });
     return Array.from(seen.entries());
   }, [post, roleColor]);
 
   const selectedParticipant = selectedNodeId && selectedNodeId !== POST_NODE_ID ? collaboratorById.get(selectedNodeId) : null;
-  const selectedRole = selectedParticipant && post ? post.collaboratorRoles?.[selectedParticipant.id] : undefined;
+  const selectedRoles = selectedParticipant && post ? formatRoles(post, selectedParticipant.id) : '';
   const postNodeSelected = selectedNodeId === POST_NODE_ID;
 
   function handleExportSvg() {
@@ -94,8 +95,9 @@ export default function PostNetworkView() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
       <div className="card">
         <p style={{ color: 'var(--color-text-muted)', marginBottom: '1rem' }}>
-          Pick one record to see just its participants, colored by the role you gave each
-          person. Set roles from the record's own page, under "Who did what."
+          Pick one record to see just its participants, colored by each person's main role (a
+          person can have more than one role; this shows the first one). Set roles from the
+          record's own page, under "Who did what."
         </p>
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'flex-end', flexWrap: 'wrap' }}>
           <div>
@@ -172,7 +174,7 @@ export default function PostNetworkView() {
           <div className="card">
             <h2>{selectedParticipant.name}</h2>
             <div style={{ color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
-              {selectedRole ? `Role: ${selectedRole}` : 'No role noted for this record.'}
+              {selectedRoles ? `Role${selectedRoles.includes(',') ? 's' : ''}: ${selectedRoles}` : 'No role noted for this record.'}
             </div>
             <Link to={`/collaborators/${selectedParticipant.id}`} className="btn secondary">
               Open full profile

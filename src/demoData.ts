@@ -170,7 +170,7 @@ export async function loadDemoData(): Promise<void> {
     interpretation:
       'Este evento de ejemplo ilustra cómo se conectan sonideras, el salón y la diseñadora gráfica en una sola noche. [DEMO]',
     collaboratorIds: [musas.id, djAna.id, salonCorona.id, disenadora.id],
-    collaboratorRoles: { [djAna.id]: 'DJ', [salonCorona.id]: 'Venue', [disenadora.id]: 'Designer' },
+    collaboratorRoles: { [djAna.id]: ['DJ'], [salonCorona.id]: ['Venue'], [disenadora.id]: ['Designer', 'Photographer'] },
     tagIds: [sonideroTag.id],
     themeIds: [],
   });

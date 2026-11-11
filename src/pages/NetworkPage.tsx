@@ -24,6 +24,7 @@ import PostHighlightPicker from '../components/PostHighlightPicker';
 import PostNetworkView from '../components/PostNetworkView';
 import NetworkAnalysisView from '../components/NetworkAnalysisView';
 import { exportSvgAsPngFile, exportSvgAsSvgFile } from '../utils/exportSvg';
+import { rolesForCollaborator } from '../utils/roles';
 
 const MIN_RADIUS = 10;
 const MAX_RADIUS = 42;
@@ -104,37 +105,41 @@ export default function NetworkPage() {
     return map;
   }, [postsInRange]);
 
-  // A collaborator can be given a different role on each post (a "DJ" here, a "Venue"
-  // there), so there's no single role to read off directly the way there is in the By-post
-  // view. Across every post currently in range, use whichever role was given to them most
-  // often — the role they usually play in this network, not necessarily every one they've
-  // ever had.
-  const roleByCollaborator = useMemo(() => {
+  // A collaborator can have more than one role on the same post (a DJ who also designed the
+  // flyer) and a different set of roles on each post besides, so there's no single role to
+  // read off directly the way there is in the By-post view. Across every post currently in
+  // range, tally how often each of their roles comes up — whichever comes up most often is
+  // their "primary" role for coloring (alphabetical tie-break for determinism), while the full
+  // ranked list is kept too, for the hover tooltip to show everything they've done.
+  const roleRankingByCollaborator = useMemo(() => {
     const counts = new Map<string, Map<string, number>>();
     for (const post of postsInRange) {
       for (const cid of post.collaboratorIds) {
-        const role = post.collaboratorRoles?.[cid]?.trim();
-        if (!role) continue;
-        const perCollaborator = counts.get(cid) ?? new Map<string, number>();
-        perCollaborator.set(role, (perCollaborator.get(role) ?? 0) + 1);
-        counts.set(cid, perCollaborator);
-      }
-    }
-    const result = new Map<string, string>();
-    for (const [cid, roleCounts] of counts) {
-      const ranked = Array.from(roleCounts.entries()).sort((a, b) => a[0].localeCompare(b[0], 'es'));
-      let best: string | null = null;
-      let bestCount = 0;
-      for (const [role, count] of ranked) {
-        if (count > bestCount) {
-          best = role;
-          bestCount = count;
+        for (const role of rolesForCollaborator(post, cid)) {
+          const perCollaborator = counts.get(cid) ?? new Map<string, number>();
+          perCollaborator.set(role, (perCollaborator.get(role) ?? 0) + 1);
+          counts.set(cid, perCollaborator);
         }
       }
-      if (best) result.set(cid, best);
+    }
+    const result = new Map<string, string[]>();
+    for (const [cid, roleCounts] of counts) {
+      const ranked = Array.from(roleCounts.entries())
+        .sort((a, b) => a[0].localeCompare(b[0], 'es'))
+        .sort((a, b) => b[1] - a[1])
+        .map(([role]) => role);
+      result.set(cid, ranked);
     }
     return result;
   }, [postsInRange]);
+
+  const roleByCollaborator = useMemo(() => {
+    const result = new Map<string, string>();
+    for (const [cid, ranked] of roleRankingByCollaborator) {
+      if (ranked[0]) result.set(cid, ranked[0]);
+    }
+    return result;
+  }, [roleRankingByCollaborator]);
 
   const visibleCollaborators = useMemo(() => {
     return collaborators.filter((c) => {
@@ -501,7 +506,7 @@ export default function NetworkPage() {
               y={hoveredNode.y}
               collaborator={collaboratorById.get(hoveredNode.id)}
               postCount={postCountByCollaborator.get(hoveredNode.id) ?? 0}
-              role={colorByRole ? roleByCollaborator.get(hoveredNode.id) : undefined}
+              roles={colorByRole ? roleRankingByCollaborator.get(hoveredNode.id) ?? [] : []}
               tag={colorByTagId ? tagById.get(colorByTagId) : undefined}
               tags={tagById}
             />
@@ -614,7 +619,7 @@ function NodeTooltip({
   y,
   collaborator,
   postCount,
-  role,
+  roles,
   tag,
   tags,
 }: {
@@ -622,7 +627,9 @@ function NodeTooltip({
   y: number;
   collaborator?: Collaborator;
   postCount: number;
-  role?: string;
+  /** This person's roles in the current range, ranked most- to least-common. The first is
+   * their primary role (the one coloring the node); any rest are shown as secondary context. */
+  roles: string[];
   tag?: Tag;
   tags: Map<string, Tag>;
 }) {
@@ -631,6 +638,7 @@ function NodeTooltip({
   const flipY = y > window.innerHeight - 160;
   const matchesTag = tag ? collaborator.tagIds.includes(tag.id) : false;
   const otherTags = collaborator.tagIds.map((tid) => tags.get(tid)).filter((t): t is Tag => Boolean(t));
+  const [primary, ...secondary] = roles;
 
   return (
     <div
@@ -655,9 +663,14 @@ function NodeTooltip({
       {collaborator.instagramHandle && (
         <div style={{ color: 'var(--color-accent-2)' }}>@{collaborator.instagramHandle}</div>
       )}
-      {role && <div style={{ color: 'var(--color-text-muted)' }}>Role: {role}</div>}
+      {primary && (
+        <div style={{ color: 'var(--color-text-muted)' }}>
+          Role: {primary}
+          {secondary.length > 0 && <> (also {secondary.join(', ')})</>}
+        </div>
+      )}
       {tag && <div style={{ color: 'var(--color-text-muted)' }}>{matchesTag ? `Tagged: ${tag.label}` : `Not tagged: ${tag.label}`}</div>}
-      {!role && !tag && otherTags.length > 0 && (
+      {!primary && !tag && otherTags.length > 0 && (
         <div style={{ color: 'var(--color-text-muted)' }}>{otherTags.map((t) => t.label).join(', ')}</div>
       )}
       <div style={{ color: 'var(--color-text-muted)' }}>

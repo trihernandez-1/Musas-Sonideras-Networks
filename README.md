@@ -97,8 +97,9 @@ screenshot *of* a named occasion is a third post, on its own.
 - **Inbox** — one form, every field optional except the date: drop/paste
   screenshots, give it a name if it's a named occasion, an end date for
   something multi-day, tag collaborators (search or quick-create) and note
-  what each one did ("Who did what" — type a role or pick one you've used
-  before from the dropdown), set a location (search an address or
+  what each one did ("Who did what" — a person can have more than one role
+  on the same post; type one or pick from previously-used roles, the first
+  one added counts as their main role), set a location (search an address or
   add one by hand — it shows up as its own pin on the Map), a post link,
   caption notes, a rich-text interpretation field, your own tags, and
   themes — a separate vocabulary of thematic-analysis codes, so tags and
@@ -110,13 +111,15 @@ screenshot *of* a named occasion is a third post, on its own.
   - **Aggregate**: a force-directed graph (collaborators as nodes, sized by
     post count): solid lines for co-tagged connections, dashed for ones you
     draw by hand (drag from node to node); filter by tag, color by a chosen
-    tag or by role (each person's most common role across posts in range,
-    with a legend), pick a single post to spotlight exactly who was tagged
-    together in it, and a date-range slider marking October 6, 2023 (the
-    heritage declaration) to compare before/after.
+    tag or by role (each person's most common role across posts in range —
+    guaranteed a different color per role, with a legend overlaid on the
+    graph; hover a node for their name, role(s), and post count), pick a
+    single post to spotlight exactly who was tagged together in it, and a
+    date-range slider marking October 6, 2023 (the heritage declaration) to
+    compare before/after.
   - **By post**: pick one post to see just its participants in a simple hub
-    diagram, colored by the role you gave each person (set roles from the
-    post's own page, under "Who did what").
+    diagram, colored by each person's main role (set roles from the post's
+    own page, under "Who did what").
   - **Analysis**: standard network-science measures (degree, density,
     connected components, diameter, average path length, clustering
     coefficient — following Barabási's *Network Science*, Ch. 2), computed

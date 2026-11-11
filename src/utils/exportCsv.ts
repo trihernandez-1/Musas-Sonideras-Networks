@@ -5,6 +5,7 @@ import JSZip from 'jszip';
 import type { Collaborator, Connection, Place, Post } from '../types/models';
 import { getAllCollaborators, getAllConnections, getAllPlaces, getAllPosts, getAllTags, getAllThemes } from '../db/repos';
 import { downloadBlob, stripHtml } from './download';
+import { rolesForCollaborator } from './roles';
 
 function csvCell(value: string | number | boolean | undefined | null): string {
   const s = value === undefined || value === null ? '' : String(value);
@@ -118,9 +119,9 @@ export async function exportCsvBundle(): Promise<void> {
   const collaboratorRoles = (p: Post) =>
     p.collaboratorIds
       .map((cid) => {
-        const role = p.collaboratorRoles?.[cid];
+        const roles = rolesForCollaborator(p, cid);
         const name = collaboratorById.get(cid)?.name;
-        return role && name ? `${name}:${role}` : null;
+        return roles.length > 0 && name ? `${name}:${roles.join('/')}` : null;
       })
       .filter((s): s is string => Boolean(s))
       .join(';');

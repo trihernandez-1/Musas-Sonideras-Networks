@@ -31,7 +31,9 @@ export function legacyEventToPost(event: LegacyEventRecord): Post {
     captionNotes: event.description ?? '',
     interpretation: event.interpretation ?? '',
     collaboratorIds: event.collaboratorIds,
-    collaboratorRoles: event.collaboratorRoles,
+    collaboratorRoles: event.collaboratorRoles
+      ? Object.fromEntries(Object.entries(event.collaboratorRoles).map(([cid, role]) => [cid, [role]]))
+      : undefined,
     placeId: event.placeId,
     tagIds: event.tagIds,
     themeIds: [],

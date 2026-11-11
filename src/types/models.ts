@@ -67,8 +67,12 @@ export interface Post {
   interpretation: string; // rich text stored as HTML
   collaboratorIds: ID[];
   /** What each collaborator did here, e.g. "DJ", "Venue", "Designer" — free text, keyed by
-   * collaborator id. Optional and sparse: not every participant needs one noted. */
-  collaboratorRoles?: Record<ID, string>;
+   * collaborator id. A person can have more than one role on the same post (a DJ who also
+   * designed the flyer); the first one listed is treated as their most prominent role for this
+   * post wherever only one can be shown. Optional and sparse: not every participant needs one
+   * noted. Older records may still have a single string here rather than an array — read them
+   * through rolesForCollaborator() in utils/roles.ts rather than indexing this directly. */
+  collaboratorRoles?: Record<ID, string[]>;
   /** Where this happened, if that's meaningful — shows up as its own pin on the Map. */
   placeId?: ID;
   tagIds: ID[];
